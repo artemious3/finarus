@@ -1,0 +1,27 @@
+[package]
+name = "l1"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde_json = "1.0"
+serde = {version="1.0.99", features=["derive"]}
+rand = "0.9"
+rouille="3.6.0"
+env_logger = "0.11.6"
+log = "0.4.0"
+sha2 = "0.10.8"
+reqwest = {version="0.12.12", features=["blocking"]}
+macro_const = "0.1.0"
+serde_yaml = "0.9.34"
+chrono = {version="0.4.39", features=["serde"]}
+regex = "1.11.1"
+
+
+[[bin]]
+name="bank-client"
+path="src/client/main.rs"
+
+[[bin]]
+name="bank-server"
+path="src/server/main.rs"
