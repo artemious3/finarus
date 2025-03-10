@@ -5,6 +5,7 @@ use crate::services::auth::AuthService;
 use crate::services::time;
 use crate::traits::dynamic::Dynamic;
 use chrono::Utc;
+use l1::common::account::*;
 use l1::common::auth::Token;
 use l1::common::bank::*;
 use l1::common::deposit::*;
@@ -28,11 +29,24 @@ struct BankRequestContext {
 
 impl BankService {
     pub fn new(serv: Arc<Mutex<AuthService>>) -> Self {
-        BankService {
+        let mut bs = BankService {
             auth: serv,
             banks: HashMap::new(),
             transactions: Vec::new(),
-        }
+        };
+
+        //TMP
+        bs.banks.insert(
+            1003004,
+            Bank::new(BankPublicInfo {
+                name: "Belarusbank".to_string(),
+                bik: 1003004,
+                address: "Nezalezhnasci pr, 4".to_string(),
+            }),
+        );
+        //TMP
+
+        bs
     }
 
     fn get_request_context(
@@ -98,6 +112,82 @@ impl BankService {
 
         self.transactions.push(transaction);
         Ok(())
+    }
+
+    pub fn transaction(
+        &mut self,
+        transaction: Transaction,
+        params: &RequestParams,
+    ) -> Result<(), ServerError> {
+        let ctx = self.get_request_context(params)?;
+        let bank = self
+            .banks
+            .get_mut(&ctx.bik)
+            .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
+
+        // bank.validate_account_identity(transaction.src.account_id, &ctx.login)
+        //     .map_err(|_| ServerError::Forbidden("Accound does not exist or belong to user".to_string()))?;
+
+        self.perform_transaction(transaction)
+            .map_err(|e| ServerError::Forbidden(e.to_string()))?;
+
+        Ok(())
+    }
+
+    pub fn banks_get(&self) -> BanksGetResp {
+        let banks = self
+            .banks
+            .iter()
+            .map(|priv_bank| priv_bank.1.public_info.clone())
+            .collect();
+
+        BanksGetResp { banks }
+    }
+
+    pub fn account_open(&mut self, params: &RequestParams) -> Result<AccountOpenResp, ServerError> {
+        let ctx = self.get_request_context(params)?;
+        let bank = self
+            .banks
+            .get_mut(&ctx.bik)
+            .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
+        let new_acc_id = bank
+            .account_new(&ctx.login)
+            .map_err(|e| ServerError::Forbidden(e.to_string()))?;
+
+        Ok(AccountOpenResp {
+            account_id: new_acc_id,
+        })
+    }
+
+    pub fn account_close(
+        &mut self,
+        req: AccountCloseReq,
+        params: &RequestParams,
+    ) -> Result<(), ServerError> {
+        let ctx = self.get_request_context(params)?;
+        let bank = self
+            .banks
+            .get_mut(&ctx.bik)
+            .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
+        let closed_acc_id = req.account_id;
+        bank.account_close(&ctx.login, closed_acc_id)
+            .map_err(|e| ServerError::Forbidden(e.to_string()))?;
+
+        Ok(())
+    }
+
+    pub fn accounts_get(&self, params: &RequestParams) -> Result<AccountsGetResp, ServerError> {
+        let ctx = self.get_request_context(params)?;
+        let bank = self
+            .banks
+            .get(&ctx.bik)
+            .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
+
+        let accounts = bank
+            .accounts_get(&ctx.login)
+            .map_err(|e| ServerError::Forbidden(e.to_string()))?;
+
+        Ok(AccountsGetResp { accounts })
     }
 
     pub fn deposit_new(
@@ -176,6 +266,16 @@ impl BankService {
         .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
 
         Ok(())
+    }
+
+    pub fn deposits_get(& self, params: &RequestParams) -> Result<Vec<Deposit>, ServerError> {
+        let ctx = self.get_request_context(params)?;
+        let bank = self
+            .banks
+            .get(&ctx.bik)
+            .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
+
+        Ok(bank.deposit_service.get(ctx.login).clone())
     }
 
     // pub fn handle_post(&mut self, req: &Request) -> Result<Response, ServerError> {
@@ -293,4 +393,4 @@ impl Dynamic for BankService {
             bank.update(time);
         }
     }
-
+}

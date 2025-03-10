@@ -7,3 +7,6 @@ pub mod deposit;
 pub mod bank;
 pub mod transaction;
 pub mod validate;
+pub mod account;
+pub mod credit;
+pub mod time;

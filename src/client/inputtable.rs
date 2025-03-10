@@ -2,6 +2,8 @@ use std::io::Write;
 use std::string::String;
 use l1::common::user::*;
 use l1::common::auth::*;
+use l1::common::transaction::*;
+use l1::common::bank::{BIK, AccountID};
 use std::convert::TryInto;
 
 
@@ -55,6 +57,14 @@ impl Inputtable for String {
         std::io::stdin().read_line(&mut inp).expect("Input error");
         inp = inp.trim_end().to_string();
         Some(inp)
+    }
+}
+
+
+impl Inputtable for u64 {
+    type InputType = u64;
+    fn input(invitation: &str, n : usize) -> Option<Self::InputType> {
+        input_until_valid::<String>(invitation, n-SPACE_PER_INDENT)?.parse().ok()
     }
 }
 
@@ -169,6 +179,18 @@ impl Inputtable for AcceptRegistrationReq {
         Self::print_invitation(invitation, level);
         Some(AcceptRegistrationReq {
             login : input_until_valid::<String>("Login to accept : ", level)?,
+        })
+    }
+}
+
+
+impl Inputtable for TransactionEndPoint {
+    type InputType = TransactionEndPoint;
+    fn input(invitation: &str, level : usize) -> Option<Self::InputType> {
+        Self::print_invitation(invitation, level);
+       Some( TransactionEndPoint {
+            bik : input_until_valid::<BIK>("Bank BIK : ", level)?, 
+            account_id : input_until_valid::<AccountID>("Account ID", level)?,
         })
     }
 }

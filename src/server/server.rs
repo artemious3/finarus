@@ -1,11 +1,20 @@
-use crate::services::auth::AuthService;
-use crate::services::bank::BankService;
 use l1::common::auth::*;
 use l1::common::bank::BIK;
+use l1::common::account::*;
 use l1::common::deposit::{DepositNewRequest, DepositWithdrawRequest, DepositWithdrawResponse};
 use l1::common::user::UserType;
+use l1::common::time::TimeAdvanceReq;
+use l1::common::transaction::Transaction;
+
 use crate::traits::dynamic::Dynamic;
+use crate::traits::storable::Storable;
+use crate::services::auth::AuthService;
+use crate::services::bank::BankService;
+use crate::runner::ServerRunner;
+
 use std::str::FromStr;
+use std::time::Duration;
+
 
 use log::*;
 
@@ -22,7 +31,9 @@ pub enum ServerError {
     MethodNotAllowed(String),
 }
 
-pub fn deserialize_request<T>(body: &Request) -> Result<T, &str>
+const RUNNER_SLEEP_TIME : u64 = 24*60*60; // 24 hours
+
+pub fn deserialize_request<T>(body: &Request) -> Result<T, ServerError>
 where
     T: serde::de::DeserializeOwned,
 {
@@ -30,7 +41,7 @@ where
 
     serde_json::from_reader(body).map_err(|err: serde_json::Error| {
         error!("Unable to deserialize request : {}", err);
-        "Unable to deserialize request"
+        ServerError::BadRequest("Unable to deserialize request".to_string())
     })
 }
 
@@ -91,15 +102,21 @@ fn map_err_to_response(opt_response: Result<Response, ServerError>) -> Response 
 pub struct Server {
     auth: Arc<Mutex<AuthService>>,
     banks: Mutex<BankService>,
+    dynamic_runner : ServerRunner
 }
 
 impl Server {
-    pub fn new() -> Self {
+    pub fn new() -> Arc<Mutex<Self>> {
         let auth = Arc::new(Mutex::new(AuthService::new()));
-        Server {
-            auth: auth.clone(),
-            banks: Mutex::new(BankService::new(auth.clone())),
-        }
+        let banks = Mutex::new(BankService::new(auth.clone()));
+        let server = Arc::new(Mutex::new(Server {
+            auth,
+            banks,
+            dynamic_runner : ServerRunner::new()
+        }));
+
+        server.lock().expect("Mutex").dynamic_runner.run(&server, Duration::from_secs(RUNNER_SLEEP_TIME));
+        server.clone()
     }
 
     pub fn handle_request(&mut self, req: &Request) -> Response {
@@ -127,8 +144,7 @@ impl Server {
         if req.method() == "POST" {
             match req.url().as_str() {
                 APIV1!("/auth/login") => {
-                    let login_data: LoginReq = deserialize_request(&req)
-                        .map_err(|_: &str| ServerError::BadRequest("Bad request".to_string()))?;
+                    let login_data: LoginReq = deserialize_request(&req)?;
                     let session_info = auth
                         .init_session(login_data)
                         .map_err(|err: &str| ServerError::Forbidden(err.to_string()))?;
@@ -137,10 +153,7 @@ impl Server {
 
                 APIV1!("/auth/register") => {
                     let register_data: RegisterUserReq =
-                        deserialize_request(&req).map_err(|_: &str| {
-                            ServerError::BadRequest("Invalid registration data".to_string())
-                        })?;
-                    auth.request_add_user(register_data)
+                        deserialize_request(&req)?;                    auth.request_add_user(register_data)
                         .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
                     Ok(Response::text("Ok").with_status_code(200))
                 }
@@ -169,9 +182,10 @@ impl Server {
         match usr_type {
             UserType::Client => self.handle_client(req, params),
             UserType::Manager => self.handle_manager(req, params),
-            UserType::EnterpriseSpecialist => sefl
+            UserType::EnterpriseSpecialist => self.handle_enterprise_specialist(req, params),
             _ => unimplemented!(),
         }
+
     }
 
     pub fn handle_client(
@@ -195,36 +209,74 @@ impl Server {
                     Ok(Response::json(&usr_info))
                 }
 
-                _ => unimplemented!(),
+
+                APIV1!("/account") => {
+                    let banks_service = self.banks.lock().expect("Mutex");
+                    let accounts_resp = banks_service.accounts_get(params)?;
+                    Ok(Response::json(&accounts_resp))
+                }
+
+                APIV1!("/banks") => {
+                    let banks_service = self.banks.lock().expect("Mutex");
+                    let resp = banks_service.banks_get();
+                    Ok(Response::json(&resp))
+                }
+
+                APIV1!("/deposit") => {
+                    let banks_service = self.banks.lock().expect("Mutex");
+                    let deposits = banks_service.deposits_get(params)?;
+                    Ok( Response::json(&deposits) )
+                }
+
+
+                APIV1!("/credit") => {
+
+                    // unimplemented!();
+                    Ok( Response::text("unimplemented") )
+                }
+                
+
+                _ => Err(ServerError::NotFound("".to_string())),
             },
 
             "POST" => match req.url().as_str() {
                 APIV1!("/account/open") => {
-                    unimplemented!();
+                    let mut banks_service = self.banks.lock().expect("Mutex");
+                    let resp = banks_service.account_open(params)?;
+                    Ok(Response::json(&resp))
                 }
                 APIV1!("/account/close") => {
-                    unimplemented!();
+                    let mut banks_service = self.banks.lock().expect("Mutex");
+                    let close_req : AccountCloseReq = deserialize_request(req)?;
+                    banks_service.account_close(close_req, params)?;
+                    Ok(Response::text("Ok"))
                 }
                 APIV1!("/deposit/new") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
-                    let deposit_new_req : DepositNewRequest = deserialize_request(req)
-                        .map_err(|_| ServerError::BadRequest("".to_string()))?;
+                    let deposit_new_req : DepositNewRequest = deserialize_request(req)?;
                     banks_service.deposit_new(deposit_new_req, params)?;
                     Ok(Response::text("Ok"))
                 },
                 APIV1!("/deposit/withdraw") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
-                    let deposit_withdraw_req : DepositWithdrawRequest = deserialize_request(req)
-                        .map_err(|_| ServerError::BadRequest("".to_string()))?;
+                    let deposit_withdraw_req : DepositWithdrawRequest = deserialize_request(req)?;
                     banks_service.deposit_withdraw(deposit_withdraw_req, params)?;
+                    Ok(Response::text("Ok"))
+                }
+                APIV1!("/transaction") => {
+                    let mut banks_service = self.banks.lock().expect("Mutex");
+                    let transaction : Transaction = deserialize_request::<Transaction>(req)?;
+                    banks_service.transaction(transaction, params)?;
                     Ok(Response::text("Ok"))
                 }
 
                 APIV1!("/credit/new") => {
-                    unimplemented!();
+                    // unimplemented!();
+                    Ok( Response::text("unimplemented") )
                 }
                 APIV1!("/credit/clear") => {
-                    unimplemented!();
+                    // unimplemented!();
+                    Ok( Response::text("unimplemented") )
                 }
 
 
@@ -256,9 +308,15 @@ impl Server {
             },
 
             "POST" => match url.as_str() {
+                APIV1!("/time/advance") => {
+                    let advance_req : TimeAdvanceReq = deserialize_request(req)?;
+                    self.dynamic_runner.advance_time(advance_req.time)
+                        .map_err(|e| ServerError::BadRequest(e.to_string()))?;
+                    self.dynamic_runner.force_wakeup();
+                    Ok(Response::text("Ok"))
+                }
                 APIV1!("/auth/accept") => {
-                    let accept_registration: AcceptRegistrationReq = deserialize_request(&req)
-                        .map_err(|_| ServerError::BadRequest("Bad request".to_string()))?;
+                    let accept_registration: AcceptRegistrationReq = deserialize_request(&req)?;
                     auth.accept_registration_request(&accept_registration)
                         .map_err(|err: _| ServerError::BadRequest(err.to_string()))?;
                     Ok(Response::text("Ok").with_status_code(200))
@@ -281,6 +339,23 @@ impl Server {
         req: &Request,
         params : &RequestParams
     ) -> Result<Response, ServerError> {
+        
+
+        match req.method() {
+
+            "GET" => {
+                    unimplemented!();
+            }
+              
+            "POST" => {
+                    unimplemented!();
+            }
+            _  => Err(ServerError::MethodNotAllowed(
+                "Method not allowed".to_string(),
+            )),
+
+
+        }
 
 
 
@@ -400,5 +475,14 @@ impl Dynamic for Server {
     fn update(&mut self, time :  &chrono::DateTime<chrono::Utc>) {
         let mut banks = self.banks.lock().expect("Mutex");
         banks.update(time);
+    }
+}
+
+impl Storable for Server {
+    fn load(&mut self, _dir : &std::path::Path) {
+        ()
+    }
+    fn store(&self, _dir : &std::path::Path) {
+        ()
     }
 }

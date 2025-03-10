@@ -146,6 +146,7 @@ impl Client {
                 Ok(())
             });
         root.add_action('i' as u8, Box::new(auth_info_action));
+
         root
     }
 
