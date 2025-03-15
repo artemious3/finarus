@@ -59,6 +59,21 @@ impl AuthService {
                 public_user: None,
             },
         );
+
+
+        let mut hasher = sha2::Sha256::new();
+        hasher.update("client");
+        let hash = format!("{:x}", hasher.finalize());
+        service.users.insert(
+            "client".to_string(),
+            InternalUser {
+                user_type: UserType::Client,
+                login : "client".to_string(),
+                password_hash: hash,
+                public_user : None
+            }
+        );
+
         // TMP!!!
 
         service
@@ -196,66 +211,4 @@ impl AuthService {
         }
     }
 
-    // pub fn handle_post(&mut self, req: &Request) -> Result<Response, ServerError> {
-    //     assert_eq!(req.method(), "POST");
-    //
-    //     match req.url().as_str() {
-    //         "/auth/login" => {
-    //             let login_data: LoginData = deserialize_request(&req)
-    //                 .map_err(|_: &str| ServerError::BadRequest("Bad request".to_string()))?;
-    //             let session_info = self
-    //                 .init_session(login_data)
-    //                 .map_err(|err: &str| ServerError::Forbidden(err.to_string()))?;
-    //             Ok(Response::json(&AuthentificationData {
-    //                 token: session_info.0,
-    //                 user_type: session_info.1,
-    //             }))
-    //         }
-    //
-    //         "/auth/register" => {
-    //             let register_data: RegisterUserReq =
-    //                 deserialize_request(&req).map_err(|_: &str| {
-    //                     ServerError::BadRequest("Invalid registration data".to_string())
-    //                 })?;
-    //             self.request_add_user(register_data)
-    //                 .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
-    //             Ok(Response::text("Ok").with_status_code(200))
-    //         }
-    //
-    //         "/auth/accept" => {
-    //             self.validate_authentification(req, UserType::Manager)
-    //                 .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
-    //             let accept_registration: AcceptRegistrationReq = deserialize_request(&req)
-    //                 .map_err(|_| ServerError::BadRequest("Bad request".to_string()))?;
-    //             self.accept_registration_request(&accept_registration.login)
-    //                 .map_err(|err: _| ServerError::BadRequest(err.to_string()))?;
-    //             Ok(Response::text("Ok").with_status_code(200))
-    //         }
-    //
-    //         _ => Err(ServerError::NotFound("".to_string())),
-    //     }
-    // }
-    //
-    // pub fn handle_get(&mut self, req: &Request) -> Result<Response, ServerError> {
-    //     match req.url().as_str() {
-    //         "/auth" => {
-    //             let session_token = req
-    //                 .get_param("token")
-    //                 .and_then(|v| v.parse::<u64>().ok())
-    //                 .ok_or(ServerError::BadRequest("Bad token".to_string()))?;
-    //             let user_data = self
-    //                 .get_user_by_token(session_token)
-    //                 .ok_or(ServerError::Forbidden("Invalid token".to_string()))?;
-    //             Ok(Response::json(&user_data.public_user))
-    //         }
-    //         "/auth/accept" => {
-    //             self.validate_authentification(req, UserType::Manager)
-    //                 .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
-    //             let registration_requests = &self.get_registration_requests();
-    //             Ok(Response::json(registration_requests))
-    //         }
-    //
-    //         _ => Err(ServerError::NotFound("".to_string())),
-    //     }
-    // }
 }

@@ -1,6 +1,15 @@
 pub mod client;
 pub mod inputtable;
 pub mod menu;
+pub mod selector;
+
+#[macro_use]
+pub mod utils;
+
+
+pub mod auth_actions;
+pub mod client_actions;
+pub mod manager_actions;
 
 const LOGO: &str = r#"
 |.============[_F_E_D_E_R_A_L___R_E_S_E_R_V_E___N_O_T_E_]============.|
@@ -32,33 +41,12 @@ const BANK_CLI_STR: &str = r#"
  |____/_/   \_\_| \_|_|\_\     \____|_____|___|
  "#;
 
- use l1::common::user::UserType;
-
-use menu::*;
 
 fn main() {
     print!("{}", LOGO);
     print!("{}\n", BANK_CLI_STR);
 
     let mut client = client::Client::new();
-    loop {
-        {
-            let mut auth_menu = client.auth_menu();
-            let _ = auth_menu.exec();
-        }
-        if client.user_type().is_some() {
-            break;
-        }
-    }
-
-
-    let mut user_menu = match client.user_type().unwrap() {
-        UserType::Client => client.client_menu(),
-        UserType::Manager => client.manager_menu(),
-        _ => unimplemented!()
-    };
-    loop {
-        let _ = user_menu.exec();
-    }
+    client.run();
 
 }

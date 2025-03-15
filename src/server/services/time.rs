@@ -1,22 +1,27 @@
-use std::sync::{OnceLock};
 use chrono::{DateTime, Utc};
 
-static REAL_TIME : OnceLock<DateTime<Utc>>  = OnceLock::new();
-static VIRTUAL_TIME : OnceLock<DateTime<Utc>>  = OnceLock::new();
-
-pub fn set_time(dt : &DateTime<Utc>){
-    REAL_TIME.set(chrono::Utc::now()).expect("Time error");
-    VIRTUAL_TIME.set(dt.clone()).expect("Time error");
+pub struct TimeService {
+    real_time: DateTime<Utc>,
+    virtual_time: Option<DateTime<Utc>>,
 }
 
-pub fn get_time() -> DateTime<Utc>{
-    match VIRTUAL_TIME.get() {
-        Some(virtual_time) => {
-            virtual_time.clone() + (Utc::now() - REAL_TIME.get().unwrap())
-        },
-        None => {
-            Utc::now()
+impl TimeService {
+    pub fn new() -> TimeService {
+        TimeService {
+            real_time: chrono::Utc::now(),
+            virtual_time: None,
+        }
+    }
+
+    pub fn set_time(&mut self, dt: &DateTime<Utc>) {
+        self.real_time = chrono::Utc::now();
+        self.virtual_time = Some(dt.clone());
+    }
+
+    pub fn get_time(&self) -> DateTime<Utc> {
+        match self.virtual_time {
+            Some(vt) => vt.clone() + (Utc::now() - self.real_time),
+            None => Utc::now(),
         }
     }
 }
-

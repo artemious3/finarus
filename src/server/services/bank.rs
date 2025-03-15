@@ -4,6 +4,7 @@ use crate::server::ServerError;
 use crate::services::auth::AuthService;
 use crate::services::time;
 use crate::traits::dynamic::Dynamic;
+use crate::services::time::TimeService;
 use chrono::Utc;
 use l1::common::account::*;
 use l1::common::auth::Token;
@@ -16,6 +17,7 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 pub struct BankService {
     auth: Arc<Mutex<AuthService>>,
+    time: Arc<Mutex<TimeService>>,
 
     banks: HashMap<BIK, Bank>,
     transactions: Vec<Transaction>,
@@ -28,9 +30,10 @@ struct BankRequestContext {
 }
 
 impl BankService {
-    pub fn new(serv: Arc<Mutex<AuthService>>) -> Self {
+    pub fn new(serv: Arc<Mutex<AuthService>>, tm : Arc<Mutex<TimeService>>) -> Self {
         let mut bs = BankService {
             auth: serv,
+            time : tm,
             banks: HashMap::new(),
             transactions: Vec::new(),
         };
@@ -80,6 +83,9 @@ impl BankService {
         {
             return Err("Source and destination are the same");
         }
+        if transaction.amount <= 0 {
+            return Err("Invalid amount");
+        }
         // account_id=0 is dumb account, used for client-bank transactions
         if transaction.src.account_id != 0 {
             let src_bank = self
@@ -104,7 +110,7 @@ impl BankService {
                 .ok_or("Invalid dst BIK")?;
             let dst_acc = dst_bank
                 .accounts
-                .get_mut(&transaction.src.account_id)
+                .get_mut(&transaction.dst.account_id)
                 .ok_or("Invalid account id")?;
 
             dst_acc.balance += transaction.amount;
@@ -125,8 +131,8 @@ impl BankService {
             .get_mut(&ctx.bik)
             .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
 
-        // bank.validate_account_identity(transaction.src.account_id, &ctx.login)
-        //     .map_err(|_| ServerError::Forbidden("Accound does not exist or belong to user".to_string()))?;
+        bank.validate_account_identity(transaction.src.account_id, &ctx.login)
+            .map_err(|_| ServerError::Forbidden("Accound does not exist or belong to user".to_string()))?;
 
         self.perform_transaction(transaction)
             .map_err(|e| ServerError::Forbidden(e.to_string()))?;
@@ -240,6 +246,7 @@ impl BankService {
         params: &RequestParams,
     ) -> Result<(), ServerError> {
         let ctx = self.get_request_context(params)?;
+        let cur_time = self.time.lock().unwrap().get_time();
         self.get_bank(ctx.bik)
             .ok_or(ServerError::BadRequest("Bad bank".to_string()))?
             .validate_account_identity(req.dst_account, &ctx.login)
@@ -249,7 +256,7 @@ impl BankService {
             .get_bank_mut(ctx.bik)
             .ok_or(ServerError::BadRequest("Bad bank".to_string()))?
             .deposit_service
-            .withdraw(ctx.login, req.deposit_idx, time::get_time())
+            .withdraw(ctx.login, req.deposit_idx, cur_time)
             .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
 
         self.perform_transaction(Transaction {
@@ -278,113 +285,6 @@ impl BankService {
         Ok(bank.deposit_service.get(ctx.login).clone())
     }
 
-    // pub fn handle_post(&mut self, req: &Request) -> Result<Response, ServerError> {
-    //     assert_eq!(req.method(), "POST");
-    //     let login = self
-    //         .server
-    //         .validate_authentification(req, UserType::Client)
-    //         .map_err(|s: _| ServerError::Forbidden(s))?;
-    //     let bank = self
-    //         .bank_from_reqeust_mut(req)
-    //         .map_err(|err: &str| ServerError::BadRequest(err.to_string()))?;
-    //
-    //     match req.url().as_str() {
-    //         "/bank/deposit/new" => {
-    //             let deposit_request = deserialize_request::<DepositNewRequest>(req)
-    //                 .map_err(|_| ServerError::BadRequest("".to_string()))?;
-    //             bank.validate_account_identity(deposit_request.src_account, &login)
-    //                 .map_err(|_| {
-    //                     ServerError::Forbidden(
-    //                         "This account does not exist or does not belong to user".to_string(),
-    //                     )
-    //                 })?;
-    //             self.perform_transaction(Transaction{
-    //                 src : TransactionEndPoint {
-    //                     bik : bank.bik,
-    //                     account_id : deposit_request.src_account
-    //                 },
-    //                 dst : TransactionEndPoint {
-    //                     bik : 0,
-    //                     account_id : 0
-    //                 },
-    //                 amount : deposit_request.amount
-    //             })
-    //             .map_err(|err:_| ServerError::Forbidden(err.to_string()))?;
-    //
-    //             let deposit = Deposit {
-    //                 owner: login.clone(),
-    //                 interest_rate: 5,
-    //                 start_date: Utc::now(),
-    //                 last_update: Utc::now(),
-    //                 end_date: Utc::now() + chrono::Months::new(deposit_request.months_expires),
-    //                 initial_amount: deposit_request.amount,
-    //                 current_amount: deposit_request.amount,
-    //             };
-    //             bank.deposit_service.add_deposit(login, deposit);
-    //             Ok(Response::text("Ok"))
-    //         }
-    //         "/bank/deposit/withdraw" => {
-    //             let deposit_request = deserialize_request::<DepositWithdrawRequest>(req)
-    //                 .map_err(|_| ServerError::BadRequest("".to_string()))?;
-    //             bank.validate_account_identity(deposit_request.dst_account, &login)
-    //                 .map_err(|_| {
-    //                     ServerError::Forbidden("This account does not exist".to_string())
-    //                 })?;
-    //
-    //             let withdrawn = bank
-    //                 .deposit_service
-    //                 .withdraw(login, deposit_request.deposit_idx, time::get_time())
-    //                 .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
-    //
-    //             self.perform_transaction(Transaction{
-    //                 src : TransactionEndPoint {
-    //                     bik : 0,
-    //                     account_id : 0
-    //                 },
-    //                 dst : TransactionEndPoint {
-    //                     bik : bank.bik,
-    //                     account_id : deposit_request.dst_account
-    //                 },
-    //                 amount : withdrawn
-    //             })
-    //             .map_err(|err:_| ServerError::Forbidden(err.to_string()))?;
-    //
-    //             Ok(Response::text("Ok"))
-    //         }
-    //
-    //         "/bank/accounts/new" => {
-    //             unimplemented!()
-    //         }
-    //
-    //         "/bank/transaction" => {
-    //             let transaction_request = deserialize_request::<Transaction>(req)
-    //                 .map_err(|_| ServerError::BadRequest("".to_string()))?;
-    //
-    //             // bank.validate_account_identity(loging, transaction_request.sr)
-    //             unimplemented!()
-    //         }
-    //
-    //         _ => Err(ServerError::NotFound("".to_string())),
-    //     }
-    // }
-    //
-    // pub fn handle_get(&self, req: &Request) -> Result<Response, ServerError> {
-    //     assert_eq!(req.method(), "GET");
-    //     let bank = self
-    //         .bank_from_reqeust(req)
-    //         .map_err(|err: &str| ServerError::BadRequest(err.to_string()))?;
-    //     match req.url().as_str() {
-    //         "/bank/deposit" => {
-    //             // bank.deposit_service.get()
-    //             unimplemented!()
-    //         }
-    //
-    //         "/bank/accounts" => {
-    //             unimplemented!()
-    //         }
-    //         _ => Err(ServerError::NotFound("".to_string())),
-    //     }
-    // }
 }
 
 impl Dynamic for BankService {

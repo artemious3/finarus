@@ -8,24 +8,22 @@ use crate::traits::dynamic::Dynamic;
 use chrono::{DateTime, Utc};
 use log::*;
 use std::option::Option;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
+use crate::services::time;
 
 pub struct ServerRunner {
-    time: Arc<Mutex<DateTime<Utc>>>,
     thread_handle: Option<std::thread::Thread>,
 }
 
 impl ServerRunner {
     pub fn new() -> Self {
         ServerRunner {
-            time: Arc::new(Mutex::new(Utc::now())),
             thread_handle: None,
         }
     }
 
     pub fn run(&mut self, serv: &Arc<Mutex<Server>>, timeout: std::time::Duration) {
         let weak_server = Arc::downgrade(serv);
-        let local_time = self.time.clone();
         self.thread_handle = Some(
             std::thread::spawn(move || loop {
                 info!("Server runner woke up. Good morning!");
@@ -38,7 +36,7 @@ impl ServerRunner {
                     Some(mtx_server) => {
                         info!("Server is alive. Performing dynamic update...");
                         let mut server = mtx_server.lock().expect("Mutex");
-                        server.update(&local_time.lock().expect("Mutex"));
+                        server.update();
                     }
                 }
                 info!(
@@ -57,13 +55,4 @@ impl ServerRunner {
         handle.unpark();
     }
 
-    pub fn advance_time(&mut self, time: DateTime<Utc>) -> Result<(), &str> {
-        let mut time_ref = self.time.lock().expect("Mutex");
-        if time < *time_ref {
-            Err("Can't advance time in past")
-        } else {
-            *time_ref = time;
-            Ok(())
-        }
-    }
 }

@@ -11,9 +11,12 @@ use crate::traits::storable::Storable;
 use crate::services::auth::AuthService;
 use crate::services::bank::BankService;
 use crate::runner::ServerRunner;
+use crate::services::time::TimeService;
 
 use std::str::FromStr;
 use std::time::Duration;
+
+use chrono::{DateTime, Utc};
 
 
 use log::*;
@@ -102,16 +105,19 @@ fn map_err_to_response(opt_response: Result<Response, ServerError>) -> Response 
 pub struct Server {
     auth: Arc<Mutex<AuthService>>,
     banks: Mutex<BankService>,
+    time : Arc<Mutex<TimeService>>,
     dynamic_runner : ServerRunner
 }
 
 impl Server {
     pub fn new() -> Arc<Mutex<Self>> {
         let auth = Arc::new(Mutex::new(AuthService::new()));
-        let banks = Mutex::new(BankService::new(auth.clone()));
+        let time = Arc::new(Mutex::new(TimeService::new()));
+        let banks = Mutex::new(BankService::new(auth.clone(), time.clone()));
         let server = Arc::new(Mutex::new(Server {
             auth,
             banks,
+            time,
             dynamic_runner : ServerRunner::new()
         }));
 
@@ -263,6 +269,9 @@ impl Server {
                     banks_service.deposit_withdraw(deposit_withdraw_req, params)?;
                     Ok(Response::text("Ok"))
                 }
+                APIV1!("/deposit/possible") => {
+                    unimplemented!()
+                }
                 APIV1!("/transaction") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
                     let transaction : Transaction = deserialize_request::<Transaction>(req)?;
@@ -278,7 +287,6 @@ impl Server {
                     // unimplemented!();
                     Ok( Response::text("unimplemented") )
                 }
-
 
                 _ => Err(ServerError::NotFound("".to_string())),
             },
@@ -301,6 +309,10 @@ impl Server {
                     let registration_requests = auth.get_registration_requests();
                     Ok(Response::json(&registration_requests))
                 }
+                APIV1!("/time/get") => {
+                    let time = self.time.lock().unwrap().get_time();
+                    Ok(Response::json(&time))
+                }
                 APIV1!("/credit/accept")=> {
                     unimplemented!()
                 }
@@ -310,8 +322,7 @@ impl Server {
             "POST" => match url.as_str() {
                 APIV1!("/time/advance") => {
                     let advance_req : TimeAdvanceReq = deserialize_request(req)?;
-                    self.dynamic_runner.advance_time(advance_req.time)
-                        .map_err(|e| ServerError::BadRequest(e.to_string()))?;
+                    self.time.lock().unwrap().set_time(&advance_req.time);
                     self.dynamic_runner.force_wakeup();
                     Ok(Response::text("Ok"))
                 }
@@ -331,6 +342,14 @@ impl Server {
                 "Method not allowed".to_string(),
             )),
         }
+    }
+
+
+    pub fn update(&mut self){
+        let mut banks = self.banks.lock().expect("Mutex");
+        let time_service = self.time.lock().unwrap();
+        let time = time_service.get_time();
+        banks.update(&time);
     }
 
 
@@ -469,14 +488,6 @@ impl Server {
     // }
 }
 
-
-
-impl Dynamic for Server {
-    fn update(&mut self, time :  &chrono::DateTime<chrono::Utc>) {
-        let mut banks = self.banks.lock().expect("Mutex");
-        banks.update(time);
-    }
-}
 
 impl Storable for Server {
     fn load(&mut self, _dir : &std::path::Path) {

@@ -37,3 +37,17 @@ pub struct DepositWithdrawRequest {
 pub struct DepositWithdrawResponse {
     pub withdrawn_money : Money
 }
+
+
+#[derive(Serialize, Deserialize)]
+pub struct DepositPossibleResponse {
+    
+}
+
+pub struct DepositParams {
+    pub interest_rate : u8,
+    pub months_expires : u32,
+
+
+}
+
