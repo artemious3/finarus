@@ -36,7 +36,7 @@ fn ensure_bank_selected(ctx: &ClientContext) -> Result<(), String> {
 
 impl Action for GetAuthInfoAction {
     fn name(&self) -> &'static str {
-        "Info about current user"
+        "INFO about current user"
     }
 
     fn description(&self) -> &'static str {
@@ -57,7 +57,7 @@ pub struct SelectBankAction {}
 
 impl Action for SelectBankAction {
     fn name(&self) -> &'static str {
-        "Select bank"
+        "select BANK"
     }
 
     fn description(&self) -> &'static str {
@@ -95,7 +95,7 @@ pub struct AccountOpenAction {}
 
 impl Action for AccountOpenAction {
     fn name(&self) -> &'static str {
-        "Open account"
+        "OPEN account"
     }
 
     fn description(&self) -> &'static str {
@@ -120,7 +120,7 @@ pub struct AccountsGetAction {}
 
 impl Action for AccountsGetAction {
     fn name(&self) -> &'static str {
-        "Get you accounts in selected bank"
+        "GET accounts"
     }
 
     fn description(&self) -> &'static str {
@@ -144,7 +144,7 @@ pub struct TransacionAction {}
 
 impl Action for TransacionAction {
     fn name(&self) -> &'static str {
-        "Perform transaction"
+        "TRANSACTION"
     }
 
     fn description(&self) -> &'static str {
@@ -194,7 +194,7 @@ pub struct DepositOpen {}
 
 impl Action for DepositOpen {
     fn name(&self) -> &'static str {
-        "Open deposit"
+        "OPEN deposit"
     }
 
     fn description(&self) -> &'static str {
@@ -224,7 +224,7 @@ pub struct DepositGet {}
 impl Action for DepositGet {
 
     fn name(&self) -> &'static str {
-        "Get deposits"
+        "GET deposits"
     }
 
     fn description(&self) -> &'static str {
@@ -252,7 +252,7 @@ pub struct DepositWithdrawAction {}
 
 impl Action for DepositWithdrawAction {
     fn name(&self) -> &'static str {
-        "Withdraw deposit"
+        "WITHDRAW deposit"
     }
 
 

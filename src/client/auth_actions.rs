@@ -11,7 +11,7 @@ pub struct LoginAction {}
 
 impl Action for LoginAction {
     fn name(&self) -> &'static str {
-        "Login into the system"
+        "LOGIN into the system"
     }
 
 
@@ -42,7 +42,7 @@ pub struct RegisterAction {}
 impl Action for RegisterAction {
 
     fn name(&self) -> &'static str {
-        "Register as a new user"
+        "REGISTER as a new user"
     }
 
 

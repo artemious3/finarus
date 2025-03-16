@@ -38,7 +38,7 @@ pub struct AcceptRegistrationRequestsAction {}
 
 impl Action for AcceptRegistrationRequestsAction {
     fn name(&self) -> &'static str {
-        "Accept registration requests"
+        "ACCEPT REGISTRATION requests"
     }
     fn description(&self) -> &'static str {
         "Accept registration requests"
@@ -68,7 +68,7 @@ impl Action for AdvanceTimeAction {
         "Change server local time for all dynamic services to be recalculated."
     }
     fn name(&self) -> &'static str {
-        "Change server local time"
+        "CHANGE server local TIME"
     }
 
     fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
@@ -90,7 +90,7 @@ pub struct GetTimeAction {}
 
 impl Action for GetTimeAction {
     fn description(&self) -> &'static str {
-        "Get server local time"
+        "GET server local TIME"
     }
     fn name(&self) -> &'static str {
         "Get server local time"

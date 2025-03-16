@@ -64,13 +64,14 @@ impl<'a> Client<'a> {
         self.client_menu.add_action('i' as u8, Box::new(GetAuthInfoAction{}));
 
         let mut acc_menu = Menu::new();
-        acc_menu.set_name("Account manipulation");
+        acc_menu.set_name("ACCOUNT menu");
         acc_menu.add_action('g' as u8, Box::new(AccountsGetAction{}));
         acc_menu.add_action('o' as u8, Box::new(AccountOpenAction{}));
         self.client_menu.add_action('a' as u8, Box::new(acc_menu));
 
 
         let mut deposit_menu = Menu::new();
+        deposit_menu.set_name("DEPOSITS menu");
         deposit_menu.add_action('o' as u8, Box::new(DepositOpen{}));
         deposit_menu.add_action('g' as u8, Box::new(DepositGet{}));
         deposit_menu.add_action('w' as u8, Box::new(DepositWithdrawAction{}));
