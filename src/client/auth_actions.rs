@@ -47,8 +47,9 @@ impl Action for RegisterAction {
 
 
     fn description(&self) -> &'static str {
-        concat!("Input all data, requested by the system in order to get registered.",
-                "After manager will accept your request, you will be able to login in system")
+r#"
+Input all data, requested by the system in order to get registered as CLIENT.
+After manager will accept your request, you will be able to login in system"#
     }
 
 
