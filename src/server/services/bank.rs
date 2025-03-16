@@ -2,7 +2,6 @@ use crate::bank::Bank;
 use crate::server::RequestParams;
 use crate::server::ServerError;
 use crate::services::auth::AuthService;
-use crate::services::time;
 use crate::traits::dynamic::Dynamic;
 use crate::services::time::TimeService;
 use chrono::Utc;
@@ -12,6 +11,7 @@ use l1::common::bank::*;
 use l1::common::deposit::*;
 use l1::common::transaction::{Transaction, TransactionEndPoint};
 use l1::common::user::UserType;
+use l1::common::Money;
 use std::sync::{Arc, Mutex};
 
 use std::collections::HashMap;
@@ -83,7 +83,7 @@ impl BankService {
         {
             return Err("Source and destination are the same");
         }
-        if transaction.amount <= 0 {
+        if transaction.amount <= Money(0) {
             return Err("Invalid amount");
         }
         // account_id=0 is dumb account, used for client-bank transactions

@@ -3,6 +3,8 @@ use l1::common::bank::{AccountID, BIK};
 use l1::common::transaction::*;
 use l1::common::user::*;
 use l1::common::deposit::*;
+use l1::common::Money;
+use l1::common::credit::CreditTerm;
 use std::convert::TryInto;
 use std::io::Write;
 use std::string::String;
@@ -241,7 +243,7 @@ impl Inputtable for DepositNewRequest {
             src_account : u64::input("Source account : ", n)?,
             interest_rate : u8::input("Interest rate : ", n)?,
             months_expires : u32::input("Month expires", n)?,
-            amount : i32::input("Amount of money : ", n)?
+            amount : Money(i32::input("Amount of money : ", n)?)
         })
 //TMP!!!
 

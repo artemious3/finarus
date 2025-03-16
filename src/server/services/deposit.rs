@@ -88,7 +88,7 @@ impl Dynamic for DepositService {
                     let months = std::cmp::min(months_to_now, months_to_end);
                     deposit.last_update = now.clone();
                     let koef = (1.0 + (deposit.interest_rate as f64)/100.0/12.0).powi(months);
-                    deposit.current_amount = ((deposit.current_amount as f64) * koef).floor() as Money;
+                    deposit.current_amount = Money( ((*deposit.current_amount as f64) * koef).floor() as i32 );
                 }
 
             }

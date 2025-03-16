@@ -2,6 +2,7 @@ use crate::services::deposit::DepositService;
 use crate::traits::dynamic::Dynamic;
 use l1::common::auth::Login;
 use l1::common::bank::*;
+use l1::common::Money;
 use std::collections::HashMap;
 
 pub struct Bank {
@@ -61,7 +62,7 @@ impl Bank {
 
         // TODO : remove 1334
         let new_acc = Account {
-            balance: 1334,
+            balance: Money(1334),
             id: new_acc_id as u64,
             status: AccountStatus::Normal,
         };
