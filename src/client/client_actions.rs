@@ -40,7 +40,7 @@ impl Action for GetAuthInfoAction {
     }
 
     fn description(&self) -> &'static str {
-        "Obtain personal info of currently logged user"
+        "Below the public personal info of currently logged user will be printed"
     }
 
     fn exec(&mut self, ctx_ref: Arc<Mutex<ClientContext>>) -> Result<(), String> {
@@ -99,7 +99,7 @@ impl Action for AccountOpenAction {
     }
 
     fn description(&self) -> &'static str {
-        "Open account in selected bank"
+        "New account in currently selected bank will be opened"
     }
 
     fn exec(&mut self, ctx_ref: Arc<Mutex<ClientContext>>) -> Result<(), String> {
@@ -120,11 +120,11 @@ pub struct AccountsGetAction {}
 
 impl Action for AccountsGetAction {
     fn name(&self) -> &'static str {
-        "Get you accounts in selected banks"
+        "Get you accounts in selected bank"
     }
 
     fn description(&self) -> &'static str {
-        "Get you accounts in selected banks"
+        "Get you accounts in selected bank"
     }
 
     fn exec(&mut self, ctx_ref: Arc<Mutex<ClientContext>>) -> Result<(), String> {
@@ -148,8 +148,11 @@ impl Action for TransacionAction {
     }
 
     fn description(&self) -> &'static str {
-        concat!("Perform transaction between your account and another arbitraty account in the bank system.",
-                "Owner of an account should give you his bank's BIK and account id")
+        r#"
+Perform transaction between your account and another arbitraty account 
+in the bank system. Owner of an account should give you his bank's BIK
+and account id.
+        "#
     }
 
     fn exec(&mut self, ctx_ref: Arc<Mutex<ClientContext>>) -> Result<(), String> {
@@ -195,7 +198,10 @@ impl Action for DepositOpen {
     }
 
     fn description(&self) -> &'static str {
-        "Open deposit"
+r#"Input all requested data to open a deposit in selected
+bank. The money will be withdrawn from specified account
+and transferred to bank's account. After specified amount
+of time you will be able to withdraw you money back"#
     }
 
     fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
@@ -222,8 +228,9 @@ impl Action for DepositGet {
     }
 
     fn description(&self) -> &'static str {
-        "Get bank deposits"
+"Below all deposits you've opened in currently seleteed bank will be printed."
     }
+
      fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
 
         let ctx = ctx_ref.lock().unwrap();
@@ -250,7 +257,8 @@ impl Action for DepositWithdrawAction {
 
 
     fn description(&self) -> &'static str {
-        "Withdraw deposit"
+r#"Withdraw specified deposit. You can perform this only after
+it was expired"#
     }
 
     fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {

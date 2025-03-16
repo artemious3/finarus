@@ -5,6 +5,11 @@ use std::io::Write;
 use crate::client::ClientContext;
 use std::sync::{Arc, Mutex};
 
+
+pub fn flush(){
+    std::io::stdout().flush().unwrap();
+}
+
 pub trait Action {
     fn name(&self) -> &'static str;
     fn description(&self) -> &'static str;
@@ -51,7 +56,7 @@ impl<'a> Action for Menu<'a> {
             }
 
             print!(">>> ");
-            std::io::stdout().flush().expect("Input error");
+            flush();
             let mut inp = String::new();
             std::io::stdin().read_line(&mut inp).expect("Input error");
             
@@ -60,8 +65,10 @@ impl<'a> Action for Menu<'a> {
                 let option = inp.as_bytes()[0];
                 match self.actions.get_mut(&option){
                     Some(menu) => {
+                        print!("\n{}\n\n", menu.description());
+                        flush();
                         return menu.exec(ctx.clone()).map_err(|err : String|{
-                            println!("ERROR : {}", err);
+                            println!("\nERROR : {}\n\n", err);
                            err 
                         });
                     }
