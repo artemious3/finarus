@@ -211,7 +211,7 @@ impl Server {
                         .ok_or(ServerError::BadRequest("Bad token".to_string()))?
                         .public_user
                         .clone()
-                        .expect("Not a client");
+                        .ok_or(ServerError::BadRequest("No public client data".to_string()))?;
                     Ok(Response::json(&usr_info))
                 }
 
@@ -375,10 +375,6 @@ impl Server {
 
 
         }
-
-
-
-
 
     }
 
