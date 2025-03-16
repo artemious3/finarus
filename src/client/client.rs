@@ -72,7 +72,8 @@ impl<'a> Client<'a> {
 
         let mut deposit_menu = Menu::new();
         deposit_menu.add_action('o' as u8, Box::new(DepositOpen{}));
-        deposit_menu.add_action('f' as u8, Box::new(DepositGet{}));
+        deposit_menu.add_action('g' as u8, Box::new(DepositGet{}));
+        deposit_menu.add_action('w' as u8, Box::new(DepositWithdrawAction{}));
         self.client_menu.add_action('d' as u8, Box::new(deposit_menu));
 
         self.client_menu.add_action('t' as u8, Box::new(TransacionAction{}));

@@ -1,14 +1,29 @@
 use crate::client::ClientContext;
 use crate::inputtable::*;
 use crate::menu::Action;
-use crate::selector::select_from;
+use crate::selector::{select_from, select_idx};
 use crate::utils::*;
 use l1::common::account::*;
 use l1::common::transaction::{TransactionEndPoint, Transaction};
 use l1::common::user::User;
 use l1::common::bank:: BanksGetResp;
 use l1::common::deposit::*;
+use l1::common::bank::AccountID;
 use std::sync::{Arc, Mutex};
+
+
+fn select_account(ctx: &ClientContext) -> Result<AccountID, String> {
+
+        let resp = get_with_params(API!("/account"), &ctx)?;
+        let resp_s = handle_errors(resp)?;
+        let result: AccountsGetResp =
+            serde_json::from_str(&resp_s).map_err(|_| "Wrong response".to_string())?;
+
+        let acc_id = select_from(&result.accounts.iter().map(|acc| acc.id).collect())
+            .ok_or("Cancelled".to_string())?;
+
+        Ok(acc_id)
+}
 
 pub struct GetAuthInfoAction {}
 
@@ -141,16 +156,7 @@ impl Action for TransacionAction {
         let ctx = ctx_ref.lock().unwrap();
         ensure_bank_selected(&ctx)?;
 
-        let resp = get_with_params(API!("/account"), &ctx)?;
-        let resp_s = handle_errors(resp)?;
-        let result: AccountsGetResp =
-            serde_json::from_str(&resp_s).map_err(|_| "Wrong response".to_string())?;
-
-        println!("Select source account for transaction");
-
-        let acc_id = select_from(&result.accounts.iter().map(|acc| acc.id).collect())
-            .ok_or("Cancelled".to_string())?;
-
+        let acc_id = select_account(&ctx)?;
 
         let dst_endpoint = TransactionEndPoint::input("Input the destination of transaction: \n", 0). 
             ok_or("Cancelled".to_string())?;
@@ -232,6 +238,46 @@ impl Action for DepositGet {
 
      }
 
+}
+
+
+pub struct DepositWithdrawAction {}
+
+impl Action for DepositWithdrawAction {
+    fn name(&self) -> &'static str {
+        "Withdraw deposit"
+    }
+
+
+    fn description(&self) -> &'static str {
+        "Withdraw deposit"
+    }
+
+    fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
+
+
+        let ctx = ctx_ref.lock().unwrap();
+        ensure_bank_selected(&ctx)?;
+
+        println!("Select destination account for deposit");
+        let dst_account = select_account(&ctx)?;
+
+        let deposits_s =  handle_errors( get_with_params(API!("/deposit"), &ctx)? )?;
+        let deposits : Vec<Deposit> = serde_json::from_str(&deposits_s).map_err(|_| "Server sent bad request".to_string())?;
+        let deposit_idx = select_idx(&deposits).ok_or("Wrong input")?;
+
+
+        let req = DepositWithdrawRequest { deposit_idx, dst_account };
+        let resp = post_with_params(API!("/deposit/withdraw"),
+                        serde_json::to_string(&req).expect("Unserializable"), 
+                        &ctx)?;
+
+        let resp_s = handle_errors(resp)?;
+
+        println!("Withdrawn : {} BYN", resp_s);
+        
+        Ok(())
+    }
 }
 
 

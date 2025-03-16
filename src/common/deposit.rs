@@ -5,7 +5,8 @@ use crate::common::Money;
 use crate::common::auth::Login;
 
 
-use crate::common::bank::AccountID;
+use crate::common::bank::AccountID; 
+
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Deposit {
@@ -49,5 +50,12 @@ pub struct DepositParams {
     pub months_expires : u32,
 
 
+}
+
+
+impl ToString for Deposit {
+    fn to_string(&self) -> String {
+        serde_yaml::to_string(&self).unwrap()
+    }
 }
 
