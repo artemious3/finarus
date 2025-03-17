@@ -39,4 +39,10 @@ pub struct GetRegistrationsReq {
     pub user : User
 }
 
+impl ToString for GetRegistrationsReq{
+    fn to_string(&self) -> String {
+        serde_yaml::to_string(self).unwrap()
+    }
+}
+
 

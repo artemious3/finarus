@@ -18,7 +18,6 @@ pub fn select_from<T>(options : &Vec<T> ) ->  Option<T>
 
     let sel : usize;
 
-    loop {
         print!("\nOption: ");
         std::io::stdout().flush().unwrap();
         let mut inp_s = String::new();
@@ -27,15 +26,13 @@ pub fn select_from<T>(options : &Vec<T> ) ->  Option<T>
         if let Ok(opt) = selected_opt {
             if opt > 0 && opt <= options.len() {
                     sel = opt;
-                    break
+                    return Some(options[sel-1]);
             }
         }
 
         println!("Wrong input\n");
-    }
+        None
 
-
-    Some(options[sel-1])
 }
 
 pub fn select_idx<T>(options : &Vec<T> ) ->  Option<usize>
@@ -53,7 +50,6 @@ pub fn select_idx<T>(options : &Vec<T> ) ->  Option<usize>
 
     let sel : usize;
 
-    loop {
         print!("\nOption: ");
         std::io::stdout().flush().unwrap();
         let mut inp_s = String::new();
@@ -62,13 +58,10 @@ pub fn select_idx<T>(options : &Vec<T> ) ->  Option<usize>
         if let Ok(opt) = selected_opt {
             if opt > 0 && opt <= options.len() {
                     sel = opt;
-                    break
+                    return Some(sel-1)
             }
         }
 
         println!("Wrong input\n");
-    }
-
-
-    Some(sel-1)
+        None
 }

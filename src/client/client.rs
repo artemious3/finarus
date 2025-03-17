@@ -89,7 +89,6 @@ impl<'a> Client<'a> {
 
     pub fn build_manager_menu(&mut self) {
         self.manager_menu.add_action('b' as u8 , Box::new(SelectBankAction{}));
-        self.manager_menu.add_action('g' as u8, Box::new(GetRegistrationRequestsAction{}));
         self.manager_menu.add_action('a' as u8 , Box::new(AcceptRegistrationRequestsAction{}));
         self.manager_menu.add_action('t' as u8 , Box::new(AdvanceTimeAction{}));
         self.manager_menu.add_action('e' as u8 , Box::new(GetTimeAction{}));

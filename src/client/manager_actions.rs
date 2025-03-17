@@ -18,30 +18,6 @@ fn ensure_bank_selected(ctx: &ClientContext) -> Result<(), String> {
     Ok(())
 }
 
-pub struct GetRegistrationRequestsAction {}
-
-impl Action for GetRegistrationRequestsAction{
-            fn name(&self) -> &'static str {
-                "Get registration requests"
-            }
-            fn description(&self) -> &'static str {
-                "Get registration requests"
-            }
-            fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
-                let ctx = ctx_ref.lock().unwrap();
-                let resp = get_with_params(API!("/auth/accept"), &ctx)?;
-                let response_str = handle_errors(resp)?;
-                let yaml = json_to_yaml::<Vec<GetRegistrationsReq>>(response_str)
-                    .ok_or("Server sent wrong response")?;
-                println!("Below is the list of users, requested registration\n");
-                println!("{:-^20}", "");
-                println!("{}", yaml);
-                println!("{:-^20}", "");
-                Ok(())
-            }
-}
-
-
 pub struct AcceptRegistrationRequestsAction {}
 
 impl Action for AcceptRegistrationRequestsAction {
@@ -52,18 +28,23 @@ impl Action for AcceptRegistrationRequestsAction {
         "Accept registration requests"
     }
     fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
+        
                 let ctx = ctx_ref.lock().unwrap();
-                let accept_login = AcceptRegistrationReq::input(
-                    "Input the login of the user to be accepted: \n",
-                    0,
-                )
-                .ok_or("Wrong input")?;
-                let response = post_with_params(
+                let resp = get_with_params(API!("/auth/accept"), &ctx)?;
+                let response_str = handle_errors(resp)?;
+                let options : Vec<GetRegistrationsReq> = serde_json::from_str(&response_str).map_err(
+                    |_| "Server sent wrong response".to_string()
+                )?;
+
+                let accept_login_idx = select_idx(&options).ok_or("Cancelled")?;
+                let accept_login = AcceptRegistrationReq{login : options[accept_login_idx].login.clone()};
+
+                let resp = post_with_params(
                     API!("/auth/accept"),
                     serde_json::to_string(&accept_login).unwrap(),
                     &ctx,
                 )?;
-                let _ = handle_errors(response)?;
+                let _ = handle_errors(resp)?;
                 Ok(())
     }
 }
