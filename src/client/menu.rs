@@ -19,7 +19,7 @@ pub trait Action {
 pub struct Menu<'a>{
     pub name : &'static str,
     pub desc : &'static str,
-    actions : HashMap<u8, Box<dyn Action + 'a> >
+    actions : Vec<(u8, Box<dyn Action + 'a>)>
 }
 
 impl<'a> Menu<'a> {
@@ -27,7 +27,7 @@ impl<'a> Menu<'a> {
         Menu{
             name:"",
             desc:"",
-            actions: HashMap::new()
+            actions: Vec::new()
         }
     }
 
@@ -41,7 +41,7 @@ impl<'a> Menu<'a> {
     }
 
     pub fn add_action(&mut self, opt : u8, action : Box<dyn Action + 'a>) -> &mut Self{
-        let _ = self.actions.insert(opt, action);
+        let _ = self.actions.push((opt, action));
         self
     }
 
@@ -63,11 +63,12 @@ impl<'a> Action for Menu<'a> {
             // `inp` is 1 char + '\n'
             if inp.len() == 2 {
                 let option = inp.as_bytes()[0];
-                match self.actions.get_mut(&option){
-                    Some(menu) => {
-                        print!("\n{}\n\n", menu.description());
+                let maybe_menu = self.actions.iter_mut().find(|v| v.0 == option);
+                match maybe_menu{
+                    Some(val) => {
+                        print!("\n{}\n\n", val.1.description());
                         flush();
-                        return menu.exec(ctx.clone()).map_err(|err : String|{
+                        return val.1.exec(ctx.clone()).map_err(|err : String|{
                             println!("\nERROR : {}\n\n", err);
                            err 
                         });
