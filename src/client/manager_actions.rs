@@ -7,6 +7,8 @@ use crate::inputtable::*;
 use l1::common::auth::{GetRegistrationsReq, AcceptRegistrationReq};
 use l1::common::time::TimeAdvanceReq;
 use l1::common::credit::{CreditUnaccepted, CreditAcceptRequest};
+use l1::common::transaction::*;
+use l1::common::Money;
 use crate::selector::{select_idx, select_from};
 use chrono::{DateTime, Utc};
 
@@ -129,6 +131,43 @@ impl Action for CreditAcceptAction {
                         &ctx)?;
         handle_errors(resp)?;
         Ok(())
+    }
+}
+
+
+pub struct TransactionUnprotecredAction {}
+
+impl Action for TransactionUnprotecredAction {
+    fn name(&self) -> &'static str {
+        "TRANSACTION (unprotecteed)"
+    }
+
+    fn description(&self) -> &'static str {
+        "Perform unprotected transaction. Please be careful."
+    }
+
+
+    fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
+          let ctx = ctx_ref.lock().unwrap();
+
+          println!("Input transaction details.\n");
+
+        let transaction_req = Transaction {
+            src: TransactionEndPoint::input("Source :\n", 0).ok_or("")?,
+            dst: TransactionEndPoint::input("Destination :\n", 0).ok_or("")?,
+            amount: Money(i32::input("Amount : ", 0).ok_or("")?),
+        };
+
+        let transaction_resp = post_with_params(
+            API!("/transaction"),
+            serde_json::to_string(&transaction_req).unwrap(),
+            &ctx,
+        )?;
+
+        handle_errors(transaction_resp)?;
+
+        Ok(())
+
     }
 }
 

@@ -93,6 +93,7 @@ impl<'a> Client<'a> {
         self.manager_menu.add_action('t' as u8 , Box::new(AdvanceTimeAction{}));
         self.manager_menu.add_action('e' as u8 , Box::new(GetTimeAction{}));
         self.manager_menu.add_action('c' as u8 , Box::new(CreditAcceptAction{}));
+        self.manager_menu.add_action('t' as u8 , Box::new(TransactionUnprotecredAction{}));
     }
 
     pub fn run(&mut self) {

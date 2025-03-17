@@ -337,6 +337,12 @@ impl Server {
                     self.dynamic_runner.force_wakeup();
                     Ok(Response::text("Ok"))
                 }
+                APIV1!("/transaction") => {
+                    let mut banks_service = self.banks.lock().expect("Mutex");
+                    let transaction : Transaction = deserialize_request::<Transaction>(req)?;
+                    banks_service.transaction_unprotected(transaction, params)?;
+                    Ok(Response::text("Ok"))
+                }
                 APIV1!("/auth/accept") => {
                     let mut auth = self.auth.lock().expect("Mutex error");
                     let accept_registration: AcceptRegistrationReq = deserialize_request(&req)?;

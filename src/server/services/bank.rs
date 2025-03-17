@@ -160,6 +160,15 @@ impl BankService {
         Ok(())
     }
 
+    pub fn transaction_unprotected(&mut self, transaction: Transaction, params: &RequestParams) -> Result<(), ServerError>{
+        let _ctx = self.get_request_context(params, UserType::Manager);
+        self.perform_transaction(transaction, true)
+            .map_err(|e| ServerError::Forbidden(e.to_string()) )?;
+
+        Ok(())
+        
+    }
+
     pub fn banks_get(&self) -> BanksGetResp {
         let banks = self
             .banks
