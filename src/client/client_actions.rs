@@ -300,29 +300,58 @@ impl Action for CreditNewAction {
     fn exec(&mut self, ctx_ref: Arc<Mutex<ClientContext>>) -> Result<(), String> {
         let ctx = ctx_ref.lock().unwrap();
 
+        ensure_bank_selected(&ctx)?;
+
         let src_acc = select_account(&ctx)?;
 
-        let select_term = vec![
-            CreditTerm::M3,
-            CreditTerm::M6,
-            CreditTerm::M12,
-            CreditTerm::M24,
-            CreditTerm::MG24(0),
-        ];
-        let term_idx = select_idx(&select_term).ok_or("Wrong inpur")?;
-        let term: CreditTerm = if term_idx == 4 {
-            CreditTerm::MG24(u8::input("Custom term : ", 0).ok_or("Wrong input")?)
-        } else {
-            select_term[term_idx]
-        };
-
-        let req = CreditNewRequest {
+        let req = CreditParams{
             amount : Money(i32::input("Amount of money : ", 0).ok_or("Wrong input")?),
-            interest_rate : None,
-            term,
+            interest_rate : u8::input("Interest rate : ", 0).ok_or("Wrong input")?,
+            term : u8::input("Term : ", 0).ok_or("Wrong input")?,
             src_account:src_acc
         };
 
-        Err("Unimplemented".to_string())
+
+        let resp = post_with_params(API!("/credit/new"),
+                                serde_json::to_string(&req).unwrap(),
+                                &ctx)?;
+        handle_errors(resp)?;
+
+        Ok(())
     }
 }
+
+
+pub struct CreditGetAction {}
+
+impl Action for CreditGetAction {
+    fn name(&self) -> &'static str {
+        "GET credits"
+    }
+
+    fn description(&self) -> &'static str { 
+        "GET all your active credits in selected bank"
+    }
+
+
+    fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
+
+
+        let ctx = ctx_ref.lock().unwrap();
+
+        // ensure_bank_selected(&ctx)?;
+
+        let resp = get_with_params(API!("/credit"), &ctx)?;
+        let resp_s = handle_errors(resp)?;
+
+        let yaml = json_to_yaml::<Vec<Credit>>(resp_s).ok_or(
+            "Server sent wrong response".to_string()
+        )?;
+
+        println!("Currently active credits :\n{}", yaml);
+        Ok(())
+    }
+}
+
+
+

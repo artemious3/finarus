@@ -1,12 +1,17 @@
 use crate::services::deposit::DepositService;
+use crate::services::credit::CreditService;
 use crate::traits::dynamic::Dynamic;
 use l1::common::auth::Login;
 use l1::common::bank::*;
 use l1::common::Money;
+
 use std::collections::HashMap;
+
+
 
 pub struct Bank {
     pub deposit_service: DepositService,
+    pub credit_service : CreditService,
     pub accounts: HashMap<AccountID, Account>,
     pub clients: HashMap<Login, Vec<AccountID>>,
     pub public_info: BankPublicInfo,
@@ -16,6 +21,7 @@ impl Bank {
     pub fn new(public_info: BankPublicInfo) -> Self {
         Bank {
             deposit_service: DepositService::default(),
+            credit_service: CreditService::default(),
             accounts: HashMap::new(),
             clients: HashMap::new(),
             public_info,
@@ -31,6 +37,7 @@ impl Bank {
     pub fn add_client(&mut self, client: &String) {
         self.clients.insert(client.clone(), Vec::new());
         self.deposit_service.add_client(client.clone());
+        self.credit_service.add_client(client.clone());
     }
 
     pub fn validate_account_identity(&self, acc: AccountID, login: &Login) -> Result<(), &str> {

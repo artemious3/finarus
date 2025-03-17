@@ -4,7 +4,6 @@ use l1::common::transaction::*;
 use l1::common::user::*;
 use l1::common::deposit::*;
 use l1::common::Money;
-use l1::common::credit::CreditTerm;
 use std::convert::TryInto;
 use std::io::Write;
 use std::string::String;

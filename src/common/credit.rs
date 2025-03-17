@@ -2,6 +2,7 @@
 use chrono::{DateTime, Utc};
 use crate::common::bank::AccountID;
 use crate::common::Money;
+use crate::common::auth::Login;
 
 #[repr(u8)]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy)]
@@ -25,17 +26,40 @@ impl ToString for CreditTerm {
     }
 }
 
-pub struct Credit {
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct CreditParams {
     pub src_account : AccountID,
-
-    pub amount : Money,
     pub interest_rate : u8,
+    pub term : u8,
+    pub amount : Money,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct Credit {
+    pub owner : Login,
+
+    pub params : CreditParams,
+
     pub monthly_pay : Money,
-    pub term : CreditTerm,
 
     pub first_pay : DateTime<Utc>,
     pub last_pay :  DateTime<Utc>,
 }
+
+
+impl ToString for CreditUnaccepted{
+    fn to_string(&self) -> String {
+        serde_yaml::to_string(self).unwrap()
+    }
+}
+
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct CreditUnaccepted {
+    pub owner : Login,
+    pub params : CreditParams
+}
+
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct CreditNewRequest {
@@ -43,4 +67,9 @@ pub struct CreditNewRequest {
     pub interest_rate : Option<u8>,
     pub term : CreditTerm,
     pub amount : Money
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct CreditAcceptRequest {
+    pub idx : usize
 }

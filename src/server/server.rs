@@ -5,6 +5,7 @@ use l1::common::deposit::{DepositNewRequest, DepositWithdrawRequest, DepositWith
 use l1::common::user::UserType;
 use l1::common::time::TimeAdvanceReq;
 use l1::common::transaction::Transaction;
+use l1::common::credit::*;
 
 use crate::traits::dynamic::Dynamic;
 use crate::traits::storable::Storable;
@@ -159,7 +160,8 @@ impl Server {
 
                 APIV1!("/auth/register") => {
                     let register_data: RegisterUserReq =
-                        deserialize_request(&req)?;                    auth.request_add_user(register_data)
+                        deserialize_request(&req)?; 
+                    auth.request_add_user(register_data)
                         .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
                     Ok(Response::text("Ok").with_status_code(200))
                 }
@@ -236,9 +238,9 @@ impl Server {
 
 
                 APIV1!("/credit") => {
-
-                    // unimplemented!();
-                    Ok( Response::text("unimplemented") )
+                    let banks_service = self.banks.lock().expect("Mutex");
+                    let credits = banks_service.credit_get(params)?;
+                    Ok(Response::json(&credits))
                 }
                 
 
@@ -280,8 +282,10 @@ impl Server {
                 }
 
                 APIV1!("/credit/new") => {
-                    // unimplemented!();
-                    Ok( Response::text("unimplemented") )
+                    let mut banks_service = self.banks.lock().expect("Mutex");
+                    let new_req : CreditParams = deserialize_request(req)?;
+                    banks_service.credit_new(new_req, params)?;
+                    Ok(Response::text("Ok"))
                 }
                 APIV1!("/credit/clear") => {
                     // unimplemented!();
@@ -298,23 +302,30 @@ impl Server {
     pub fn handle_manager(
         &mut self,
         req: &Request,
-        _params: &RequestParams,
+        params: &RequestParams
     ) -> Result<Response, ServerError> {
-        let mut auth = self.auth.lock().expect("Mutex error");
         let url = req.url();
 
         match req.method() {
             "GET" => match url.as_str(){
                 APIV1!("/auth/accept") => {
+                    let mut auth = self.auth.lock().expect("Mutex error");
                     let registration_requests = auth.get_registration_requests();
                     Ok(Response::json(&registration_requests))
+                }
+                APIV1!("/banks") => {
+                    let banks_service = self.banks.lock().expect("Mutex");
+                    let resp = banks_service.banks_get();
+                    Ok(Response::json(&resp))
                 }
                 APIV1!("/time/get") => {
                     let time = self.time.lock().unwrap().get_time();
                     Ok(Response::json(&time))
                 }
                 APIV1!("/credit/accept")=> {
-                    unimplemented!()
+                    let banks_service = self.banks.lock().expect("Mutex");
+                    let credits = banks_service.credit_get_unaccepted(params)?;
+                    Ok(Response::json(&credits))
                 }
                 _ => Err(ServerError::NotFound("".to_string())),
             },
@@ -327,13 +338,17 @@ impl Server {
                     Ok(Response::text("Ok"))
                 }
                 APIV1!("/auth/accept") => {
+                    let mut auth = self.auth.lock().expect("Mutex error");
                     let accept_registration: AcceptRegistrationReq = deserialize_request(&req)?;
                     auth.accept_registration_request(&accept_registration)
                         .map_err(|err: _| ServerError::BadRequest(err.to_string()))?;
                     Ok(Response::text("Ok").with_status_code(200))
                 }
                 APIV1!("/credit/accept") => {
-                    unimplemented!()
+                    let mut banks_service = self.banks.lock().expect("Mutex");
+                    let accept_req : CreditAcceptRequest = deserialize_request(req)?;
+                    banks_service.credit_accept(accept_req, params)?;
+                    Ok(Response::text("Ok"))
                 }
                 _ => Err(ServerError::NotFound("".to_string())),
             },

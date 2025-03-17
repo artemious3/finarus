@@ -77,14 +77,23 @@ impl<'a> Client<'a> {
         deposit_menu.add_action('w' as u8, Box::new(DepositWithdrawAction{}));
         self.client_menu.add_action('d' as u8, Box::new(deposit_menu));
 
+
+        let mut credit_menu = Menu::new();
+        credit_menu.set_name("CREDIT menu");
+        credit_menu.add_action('g' as u8, Box::new(CreditGetAction{}));
+        credit_menu.add_action('n' as u8, Box::new(CreditNewAction{}));
+        self.client_menu.add_action('c' as u8, Box::new(credit_menu));
+
         self.client_menu.add_action('t' as u8, Box::new(TransacionAction{}));
     }
 
     pub fn build_manager_menu(&mut self) {
+        self.manager_menu.add_action('b' as u8 , Box::new(SelectBankAction{}));
         self.manager_menu.add_action('g' as u8, Box::new(GetRegistrationRequestsAction{}));
         self.manager_menu.add_action('a' as u8 , Box::new(AcceptRegistrationRequestsAction{}));
         self.manager_menu.add_action('t' as u8 , Box::new(AdvanceTimeAction{}));
         self.manager_menu.add_action('e' as u8 , Box::new(GetTimeAction{}));
+        self.manager_menu.add_action('c' as u8 , Box::new(CreditAcceptAction{}));
     }
 
     pub fn run(&mut self) {

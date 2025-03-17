@@ -2,17 +2,20 @@ use crate::bank::Bank;
 use crate::server::RequestParams;
 use crate::server::ServerError;
 use crate::services::auth::AuthService;
-use crate::traits::dynamic::Dynamic;
 use crate::services::time::TimeService;
-use chrono::Utc;
+use crate::traits::dynamic::Dynamic;
+
 use l1::common::account::*;
 use l1::common::auth::Token;
 use l1::common::bank::*;
+use l1::common::credit::*;
 use l1::common::deposit::*;
 use l1::common::transaction::{Transaction, TransactionEndPoint};
 use l1::common::user::UserType;
 use l1::common::Money;
 use std::sync::{Arc, Mutex};
+
+use chrono::{DateTime, Datelike, Utc};
 
 use std::collections::HashMap;
 pub struct BankService {
@@ -29,11 +32,21 @@ struct BankRequestContext {
     bik: BIK,
 }
 
+fn credit_monthly_pay(params: &CreditParams) -> Money {
+    let amount = params.amount;
+    let term = params.term as i32;
+    let rate = params.interest_rate as f64 / 100.0;
+
+    let res = (*amount as f64) * (rate + rate / ((1.0 + rate).powi(term) - 1.0));
+
+    Money(res.ceil() as i32)
+}
+
 impl BankService {
-    pub fn new(serv: Arc<Mutex<AuthService>>, tm : Arc<Mutex<TimeService>>) -> Self {
+    pub fn new(serv: Arc<Mutex<AuthService>>, tm: Arc<Mutex<TimeService>>) -> Self {
         let mut bs = BankService {
             auth: serv,
-            time : tm,
+            time: tm,
             banks: HashMap::new(),
             transactions: Vec::new(),
         };
@@ -55,13 +68,14 @@ impl BankService {
     fn get_request_context(
         &self,
         params: &RequestParams,
+        role: UserType,
     ) -> Result<BankRequestContext, ServerError> {
         let token = params
             .token
             .ok_or(ServerError::BadRequest("No token".to_string()))?;
         let auth = self.auth.lock().expect("Mutex");
         let login = auth
-            .validate_authentification(token, UserType::Client)
+            .validate_authentification(token, role)
             .map_err(|_| ServerError::Forbidden(String::new()))?;
         let bik = params
             .bik
@@ -77,7 +91,11 @@ impl BankService {
     }
 
     /* Performs transaction WITHOUT CHECKING AUTHENTIFICATION */
-    fn perform_transaction(&mut self, transaction: Transaction) -> Result<(), &str> {
+    fn perform_transaction(
+        &mut self,
+        transaction: Transaction,
+        check_balance: bool,
+    ) -> Result<(), &str> {
         if transaction.src.account_id == transaction.dst.account_id
             && transaction.src.bik == transaction.dst.bik
         {
@@ -96,7 +114,7 @@ impl BankService {
                 .accounts
                 .get_mut(&transaction.src.account_id)
                 .ok_or("Invalid account id")?;
-            if src_acc.balance < transaction.amount {
+            if check_balance && src_acc.balance < transaction.amount {
                 return Err("Not enough money on src account");
             } else {
                 src_acc.balance -= transaction.amount;
@@ -125,16 +143,18 @@ impl BankService {
         transaction: Transaction,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params)?;
+        let ctx = self.get_request_context(params, UserType::Client)?;
         let bank = self
             .banks
             .get_mut(&ctx.bik)
             .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
 
         bank.validate_account_identity(transaction.src.account_id, &ctx.login)
-            .map_err(|_| ServerError::Forbidden("Accound does not exist or belong to user".to_string()))?;
+            .map_err(|_| {
+                ServerError::Forbidden("Accound does not exist or belong to user".to_string())
+            })?;
 
-        self.perform_transaction(transaction)
+        self.perform_transaction(transaction, true)
             .map_err(|e| ServerError::Forbidden(e.to_string()))?;
 
         Ok(())
@@ -151,7 +171,7 @@ impl BankService {
     }
 
     pub fn account_open(&mut self, params: &RequestParams) -> Result<AccountOpenResp, ServerError> {
-        let ctx = self.get_request_context(params)?;
+        let ctx = self.get_request_context(params, UserType::Client)?;
         let bank = self
             .banks
             .get_mut(&ctx.bik)
@@ -170,7 +190,7 @@ impl BankService {
         req: AccountCloseReq,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params)?;
+        let ctx = self.get_request_context(params, UserType::Client)?;
         let bank = self
             .banks
             .get_mut(&ctx.bik)
@@ -183,7 +203,7 @@ impl BankService {
     }
 
     pub fn accounts_get(&self, params: &RequestParams) -> Result<AccountsGetResp, ServerError> {
-        let ctx = self.get_request_context(params)?;
+        let ctx = self.get_request_context(params, UserType::Client)?;
         let bank = self
             .banks
             .get(&ctx.bik)
@@ -201,7 +221,8 @@ impl BankService {
         req: DepositNewRequest,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params)?;
+        let ctx = self.get_request_context(params, UserType::Client)?;
+        let now = self.time.lock().unwrap().get_time();
 
         self.get_bank(ctx.bik)
             .ok_or(ServerError::BadRequest("Bad bank".to_string()))?
@@ -211,25 +232,28 @@ impl BankService {
                     "This account does not exist or does not belong to user".to_string(),
                 )
             })?;
-        self.perform_transaction(Transaction {
-            src: TransactionEndPoint {
-                bik: ctx.bik,
-                account_id: req.src_account,
+        self.perform_transaction(
+            Transaction {
+                src: TransactionEndPoint {
+                    bik: ctx.bik,
+                    account_id: req.src_account,
+                },
+                dst: TransactionEndPoint {
+                    bik: 0,
+                    account_id: 0,
+                },
+                amount: req.amount,
             },
-            dst: TransactionEndPoint {
-                bik: 0,
-                account_id: 0,
-            },
-            amount: req.amount,
-        })
+            true,
+        )
         .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
 
         let deposit = Deposit {
             owner: ctx.login.clone(),
             interest_rate: 5,
-            start_date: Utc::now(),
-            last_update: Utc::now(),
-            end_date: Utc::now() + chrono::Months::new(req.months_expires),
+            start_date: now,
+            last_update: now,
+            end_date: now + chrono::Months::new(req.months_expires),
             initial_amount: req.amount,
             current_amount: req.amount,
         };
@@ -245,7 +269,7 @@ impl BankService {
         req: DepositWithdrawRequest,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params)?;
+        let ctx = self.get_request_context(params, UserType::Client)?;
         let cur_time = self.time.lock().unwrap().get_time();
         self.get_bank(ctx.bik)
             .ok_or(ServerError::BadRequest("Bad bank".to_string()))?
@@ -259,24 +283,27 @@ impl BankService {
             .withdraw(ctx.login, req.deposit_idx, cur_time)
             .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
 
-        self.perform_transaction(Transaction {
-            src: TransactionEndPoint {
-                bik: 0,
-                account_id: 0,
+        self.perform_transaction(
+            Transaction {
+                src: TransactionEndPoint {
+                    bik: 0,
+                    account_id: 0,
+                },
+                dst: TransactionEndPoint {
+                    bik: ctx.bik,
+                    account_id: req.dst_account,
+                },
+                amount: withdrawn,
             },
-            dst: TransactionEndPoint {
-                bik: ctx.bik,
-                account_id: req.dst_account,
-            },
-            amount: withdrawn,
-        })
+            true,
+        )
         .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
 
         Ok(())
     }
 
-    pub fn deposits_get(& self, params: &RequestParams) -> Result<Vec<Deposit>, ServerError> {
-        let ctx = self.get_request_context(params)?;
+    pub fn deposits_get(&self, params: &RequestParams) -> Result<Vec<Deposit>, ServerError> {
+        let ctx = self.get_request_context(params, UserType::Client)?;
         let bank = self
             .banks
             .get(&ctx.bik)
@@ -285,12 +312,163 @@ impl BankService {
         Ok(bank.deposit_service.get(ctx.login).clone())
     }
 
+    pub fn credit_new(
+        &mut self,
+        req: CreditParams,
+        params: &RequestParams,
+    ) -> Result<(), ServerError> {
+        let ctx = self.get_request_context(params, UserType::Client)?;
+        let bank = self
+            .get_bank_mut(ctx.bik)
+            .ok_or(ServerError::BadRequest("Bad bank".to_string()))?;
+
+        bank.validate_account_identity(req.src_account, &ctx.login)
+            .map_err(|s| ServerError::Forbidden(s.to_string()))?;
+
+        let credit = CreditUnaccepted {
+            owner: ctx.login,
+            params: req,
+        };
+
+        bank.credit_service.unaccepted_credits.push(credit);
+        Ok(())
+    }
+
+    pub fn credit_accept(
+        &mut self,
+        req: CreditAcceptRequest,
+        params: &RequestParams,
+    ) -> Result<(), ServerError> {
+        let ctx = self.get_request_context(params, UserType::Manager)?;
+        let now = self.time.lock().unwrap().get_time();
+
+        let credit_template = self
+            .get_bank(ctx.bik)
+            .ok_or(ServerError::BadRequest("Bad bank".to_string()))?
+            .credit_service
+            .unaccepted_credits
+            .get(req.idx)
+            .ok_or(ServerError::BadRequest("Index out of range".into()))?
+            .clone();
+
+        self.perform_transaction(
+            Transaction {
+                amount: credit_template.params.amount,
+                src: TransactionEndPoint {
+                    bik: 0,
+                    account_id: 0,
+                },
+                dst: TransactionEndPoint {
+                    bik: ctx.bik,
+                    account_id: credit_template.params.src_account,
+                },
+            },
+            true,
+        )
+        .map_err(|e| ServerError::Forbidden(e.to_string()))?;
+
+        let credit = Credit {
+            owner: credit_template.owner.clone(),
+            params: credit_template.params.clone(),
+            monthly_pay: credit_monthly_pay(&credit_template.params),
+            first_pay: now + chrono::Months::new(1),
+            last_pay: now + chrono::Months::new(1),
+        };
+
+        let bank = self
+            .get_bank_mut(ctx.bik)
+            .expect("Bank not found after it was found");
+        bank.credit_service.unaccepted_credits.swap_remove(req.idx);
+
+        bank.credit_service
+            .accepted_credits
+            .get_mut(&credit_template.owner)
+            .expect("Bad client")
+            .push(credit);
+
+        Ok(())
+    }
+
+    pub fn credit_get(&self, params: &RequestParams) -> Result<Vec<Credit>, ServerError> {
+        let ctx = self.get_request_context(params, UserType::Client)?;
+
+        Ok(self
+            .get_bank(ctx.bik)
+            .ok_or(ServerError::BadRequest("Bad bank".into()))?
+            .credit_service
+            .accepted_credits
+            .get(&ctx.login)
+            .ok_or(ServerError::BadRequest("Bad token".into()))?
+            .to_vec())
+    }
+
+    pub fn credit_get_unaccepted(
+        &self,
+        params: &RequestParams,
+    ) -> Result<Vec<CreditUnaccepted>, ServerError> {
+        let ctx = self.get_request_context(params, UserType::Manager)?;
+
+        Ok(self
+            .get_bank(ctx.bik)
+            .ok_or(ServerError::BadRequest("Bad bank".into()))?
+            .credit_service
+            .unaccepted_credits
+            .to_vec())
+    }
+}
+
+type UnitSize = i32;
+pub fn signed_month_difference(start: &DateTime<Utc>, end: &DateTime<Utc>) -> UnitSize {
+    let end_naive = end.date_naive();
+    let start_naive = start.date_naive();
+
+    let month_diff = end_naive.month() as UnitSize - start_naive.month() as UnitSize;
+    let years_diff = (end_naive.year() - start_naive.year()) as UnitSize;
+    if month_diff >= 0 {
+        (years_diff * 12) + month_diff
+    } else {
+        (years_diff - 1) * 12 + (month_diff + 12)
+    }
 }
 
 impl Dynamic for BankService {
     fn update(&mut self, time: &chrono::DateTime<chrono::Utc>) {
+        let mut transactions: Vec<Transaction> = Vec::new();
+
         for (_, bank) in &mut self.banks {
             bank.update(time);
+
+            for (_, credit_list) in &mut bank.credit_service.accepted_credits {
+                for credit in credit_list {
+                    let months_since_last_pay = signed_month_difference(&credit.last_pay, time);
+                    let months_paid = signed_month_difference(&credit.first_pay, &credit.last_pay);
+                    let months_remaining = credit.params.term as i32 - months_paid;
+
+                    if months_since_last_pay > 0 && months_remaining > 0 {
+                        let months_to_pay = std::cmp::min(months_since_last_pay, months_remaining);
+                        transactions.push(Transaction {
+                            amount: Money(months_to_pay * *credit.monthly_pay),
+                            src: TransactionEndPoint {
+                                bik: bank.public_info.bik,
+                                account_id: credit.params.src_account,
+                            },
+                            dst: TransactionEndPoint {
+                                bik: 0,
+                                account_id: 0,
+                            },
+                        });
+
+                        credit.last_pay = credit.first_pay
+                            + chrono::Months::new((months_paid + months_to_pay) as u32);
+                    }
+                }
+            }
+        }
+
+        for trans in transactions {
+            let _ = self
+                .perform_transaction(trans, false)
+                .inspect_err(|e| log::error!("Transaction during update not performed : {}", e));
         }
     }
 }

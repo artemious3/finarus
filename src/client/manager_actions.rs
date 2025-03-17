@@ -6,9 +6,17 @@ use crate::utils::*;
 use crate::inputtable::*;
 use l1::common::auth::{GetRegistrationsReq, AcceptRegistrationReq};
 use l1::common::time::TimeAdvanceReq;
+use l1::common::credit::{CreditUnaccepted, CreditAcceptRequest};
+use crate::selector::{select_idx, select_from};
 use chrono::{DateTime, Utc};
 
 
+fn ensure_bank_selected(ctx: &ClientContext) -> Result<(), String> {
+    if ctx.bik.is_none() {
+        return Err("Select the bank first".to_string());
+    }
+    Ok(())
+}
 
 pub struct GetRegistrationRequestsAction {}
 
@@ -108,4 +116,38 @@ impl Action for GetTimeAction {
     }
 }
 
+
+pub struct CreditAcceptAction {}
+
+impl Action for CreditAcceptAction {
+    fn name(&self) -> &'static str {
+        "ACCEPT credit"
+    }
+
+    fn description(&self) -> &'static str {
+        "Accept credit"
+    }
+
+
+    fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
+
+        let ctx = ctx_ref.lock().unwrap();
+        ensure_bank_selected(&ctx)?;
+
+        let resp = get_with_params(API!("/credit/accept"),
+                                    &ctx)?;
+        let resp_s = handle_errors(resp)?;
+        let credits : Vec<CreditUnaccepted> = serde_json::from_str(&resp_s).map_err(
+            |_| "Server send wrong response".to_string()
+        )?;
+
+        let idx = select_idx(&credits).ok_or("Wrong input")?;
+
+        let resp = post_with_params(API!("/credit/accept"),
+                        serde_json::to_string(&CreditAcceptRequest{idx}).unwrap(),
+                        &ctx)?;
+        handle_errors(resp)?;
+        Ok(())
+    }
+}
 
