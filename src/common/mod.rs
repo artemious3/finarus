@@ -67,3 +67,4 @@ pub mod validate;
 pub mod account;
 pub mod credit;
 pub mod time;
+pub mod salary;
