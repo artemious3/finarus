@@ -6,6 +6,7 @@ use l1::common::user::UserType;
 use l1::common::time::TimeAdvanceReq;
 use l1::common::transaction::Transaction;
 use l1::common::credit::*;
+use l1::common::user::UserData;
 
 use crate::traits::dynamic::Dynamic;
 use crate::traits::storable::Storable;
@@ -209,13 +210,16 @@ impl Server {
 
                 APIV1!("/auth") => {
                     let auth = self.auth.lock().expect("Mutex error");
-                    let usr_info = auth
+                    let usr_info = &auth
                         .get_user_by_token(token)
                         .ok_or(ServerError::BadRequest("Bad token".to_string()))?
-                        .public_user
-                        .clone()
-                        .ok_or(ServerError::BadRequest("No public client data".to_string()))?;
-                    Ok(Response::json(&usr_info))
+                        .public_user;
+
+                    if let UserData::ClientData(client) = usr_info{
+                        Ok(Response::json(&client))
+                    } else {
+                        Err(ServerError::InternalError("No client data".to_string()))
+                    }
                 }
 
 
