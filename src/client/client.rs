@@ -68,14 +68,14 @@ impl<'a> Client<'a> {
         self.client_menu.add_action('t' as u8, Box::new(TransacionAction{}));
 
         let mut acc_menu = Menu::new();
-        acc_menu.set_name("ACCOUNT menu");
+        acc_menu.set_name("ACCOUNT");
         acc_menu.add_action('g' as u8, Box::new(AccountsGetAction{}));
         acc_menu.add_action('o' as u8, Box::new(AccountOpenAction{}));
         self.client_menu.add_action('a' as u8, Box::new(acc_menu));
 
 
         let mut deposit_menu = Menu::new();
-        deposit_menu.set_name("DEPOSITS menu");
+        deposit_menu.set_name("DEPOSITS");
         deposit_menu.add_action('o' as u8, Box::new(DepositOpen{}));
         deposit_menu.add_action('g' as u8, Box::new(DepositGet{}));
         deposit_menu.add_action('w' as u8, Box::new(DepositWithdrawAction{}));
@@ -83,7 +83,7 @@ impl<'a> Client<'a> {
 
 
         let mut credit_menu = Menu::new();
-        credit_menu.set_name("CREDIT menu");
+        credit_menu.set_name("CREDIT");
         credit_menu.add_action('g' as u8, Box::new(CreditGetAction{}));
         credit_menu.add_action('n' as u8, Box::new(CreditNewAction{}));
         self.client_menu.add_action('c' as u8, Box::new(credit_menu));

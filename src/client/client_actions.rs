@@ -36,7 +36,7 @@ fn ensure_bank_selected(ctx: &ClientContext) -> Result<(), String> {
 
 impl Action for GetAuthInfoAction {
     fn name(&self) -> &'static str {
-        "INFO about current user"
+        "AUTHENTIFICATION INFO"
     }
 
     fn description(&self) -> &'static str {
@@ -57,7 +57,7 @@ pub struct SelectBankAction {}
 
 impl Action for SelectBankAction {
     fn name(&self) -> &'static str {
-        "select BANK"
+        "SELECT BANK"
     }
 
     fn description(&self) -> &'static str {
