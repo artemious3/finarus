@@ -10,6 +10,7 @@ pub mod utils;
 pub mod auth_actions;
 pub mod client_actions;
 pub mod manager_actions;
+pub mod operator_actions;
 
 const LOGO: &str = r#"
 |.============[_F_E_D_E_R_A_L___R_E_S_E_R_V_E___N_O_T_E_]============.|

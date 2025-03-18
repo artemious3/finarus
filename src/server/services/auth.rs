@@ -3,6 +3,7 @@ use std::collections::{hash_map::Entry, HashMap};
 use crate::user::InternalUser;
 use l1::common::auth::*;
 use l1::common::user::UserType;
+use l1::common::user::UserData;
 use rand::prelude::Rng;
 
 use sha2::Digest;
@@ -48,29 +49,42 @@ impl AuthService {
 
         // TMP!!!
         let mut hasher = sha2::Sha256::new();
-        hasher.update("manager");
+        hasher.update("mng");
         let hash = format!("{:x}", hasher.finalize());
         service.users.insert(
-            "manager".to_string(),
+            "mng".to_string(),
             InternalUser {
                 user_type: UserType::Manager,
-                login: "manager".to_string(),
+                login: "mng".to_string(),
                 password_hash: hash,
-                public_user: None,
+                public_user: UserData::None
             },
         );
 
 
         let mut hasher = sha2::Sha256::new();
-        hasher.update("client");
+        hasher.update("cli");
         let hash = format!("{:x}", hasher.finalize());
         service.users.insert(
-            "client".to_string(),
+            "cli".to_string(),
             InternalUser {
                 user_type: UserType::Client,
-                login : "client".to_string(),
+                login : "cli".to_string(),
                 password_hash: hash,
-                public_user : None
+                public_user : UserData::None 
+            }
+        );
+
+        let mut hasher = sha2::Sha256::new();
+        hasher.update("opr");
+        let hash = format!("{:x}", hasher.finalize());
+        service.users.insert(
+            "opr".to_string(),
+            InternalUser {
+                user_type: UserType::Operator,
+                login : "opr".to_string(),
+                password_hash: hash,
+                public_user : UserData::None
             }
         );
 
@@ -167,7 +181,7 @@ impl AuthService {
                 user_type: UserType::Client, // by default only client is manually registered.
                 login: user.login_data.password,
                 password_hash: hash,
-                public_user: Some(user.user_data),
+                public_user: UserData::ClientData(user.user_data),
             };
             info!(
                 "Requested to add new user with login {}",
@@ -182,9 +196,13 @@ impl AuthService {
     pub fn get_registration_requests(&self) -> Vec<GetRegistrationsReq> {
         // (Login, InternalUser) => (Login, User)
         self.registration_requests.iter().map(|kv : _|{
-            GetRegistrationsReq {
-                login : kv.0.clone(),
-                user : kv.1.public_user.clone().expect("This is a special user (Admin, Manager...), which cannot be requested to register")
+            if let UserData::ClientData(client) = &kv.1.public_user {
+                GetRegistrationsReq {
+                    login : kv.0.clone(),
+                    user : client.clone()
+                }
+            } else {
+                panic!("Special user shouldn't be in registration requests");
             }
         }).collect()
     }

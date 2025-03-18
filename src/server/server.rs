@@ -191,6 +191,7 @@ impl Server {
             UserType::Client => self.handle_client(req, params),
             UserType::Manager => self.handle_manager(req, params),
             UserType::EnterpriseSpecialist => self.handle_enterprise_specialist(req, params),
+            UserType::Operator => self.handle_operator(req, params),
             _ => unimplemented!(),
         }
 
@@ -364,6 +365,40 @@ impl Server {
             )),
         }
     }
+
+
+    pub fn handle_operator(&mut self,
+        req: &Request,
+        params: &RequestParams
+    ) -> Result<Response, ServerError> {
+
+        let url = req.url();
+
+
+        match req.method() {
+
+            "GET" =>  match url.as_str(){
+                APIV1!("/transaction") => {
+                    let banks = self.banks.lock().expect("Mutex");
+                    let transactions = banks.transactions_get();
+                    Ok(Response::json(transactions))
+                },
+                _ => Err(ServerError::NotFound("".into()))
+            },
+
+
+            "POST" => match url.as_str(){
+                APIV1!("/transacion/revert") => {
+                    let mut banks = self.banks.lock().expect("Mutex");
+                    banks.transaction_revert(params)?;
+                    Ok(Response::text("Ok"))
+                },
+                _ => Err(ServerError::NotFound("".into()))
+            },
+            _ => Err(ServerError::MethodNotAllowed("".into()))
+    }
+    }
+
 
 
     pub fn update(&mut self){

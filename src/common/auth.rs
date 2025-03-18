@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::common::user::{User, UserType};
+use crate::common::user::{Client, UserType};
 
 pub type Token = u64;
 pub type Login = String;
@@ -25,7 +25,7 @@ pub struct UserInfoResonse {
 #[derive(Serialize, Deserialize)]
 pub struct RegisterUserReq{
     pub login_data : LoginReq,
-    pub user_data : User,
+    pub user_data : Client,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -36,7 +36,7 @@ pub struct AcceptRegistrationReq {
 #[derive(Serialize, Deserialize)]
 pub struct GetRegistrationsReq {
     pub login : String,
-    pub user : User
+    pub user : Client
 }
 
 impl ToString for GetRegistrationsReq{

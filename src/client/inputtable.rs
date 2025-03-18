@@ -171,12 +171,12 @@ impl Inputtable for UserPersonalName {
     }
 }
 
-impl Inputtable for User {
-    type InputType = User;
+impl Inputtable for Client {
+    type InputType = Client;
     fn input(invitation: &str, level: i32) -> Option<Self::InputType> {
         Self::print_invitation(invitation, level);
         Some({
-            User {
+            Client {
                 full_name: input_until_valid::<UserPersonalName>("Full name : \n", level)?,
                 passport: input_until_valid::<UserPassportData>("Passport data : \n", level)?,
                 email: input_until_valid::<String>("Email : ", level)?,
@@ -203,7 +203,7 @@ impl Inputtable for RegisterUserReq {
         Self::print_invitation(invitation, level);
         Some(RegisterUserReq {
             login_data: input_until_valid::<LoginReq>("Credentials : \n", level)?,
-            user_data: input_until_valid::<User>("Personal information : \n", level)?,
+            user_data: input_until_valid::<Client>("Personal information : \n", level)?,
         })
     }
 }

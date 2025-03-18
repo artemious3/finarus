@@ -63,14 +63,14 @@ impl Validate for UserPassportData
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct User{
+pub struct Client{
     pub full_name : UserPersonalName,
     pub passport : UserPassportData,
     pub phone_number : String,
     pub email : String
 }
 
-impl Validate for User{
+impl Validate for Client{
     fn validate(&self) -> Result<(), &str> {
         self.full_name.validate()?;
         self.passport.validate()?;
@@ -84,7 +84,7 @@ impl Validate for User{
 }
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Enterprise{
     pub enterprise_type : String, 
     pub name : String, 
@@ -93,6 +93,17 @@ pub struct Enterprise{
 }
 
 pub type UserID = u64;
+
+
+#[derive(Debug, Clone)]
+pub enum UserData {
+    None,
+    EnterpriseData(Enterprise),
+    ClientData(Client)
+}
+
+
+
 
 
 

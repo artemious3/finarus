@@ -7,6 +7,7 @@ use l1::common::bank:: BIK;
 use crate::auth_actions::*;
 use crate::client_actions::*;
 use crate::manager_actions::*;
+use crate::operator_actions::*;
 
 
 
@@ -25,6 +26,7 @@ pub struct Client<'a> {
     auth_menu: Menu<'a>,
     manager_menu: Menu<'a>,
     client_menu: Menu<'a>,
+    operator_menu: Menu<'a>,
 }
 
 
@@ -38,11 +40,13 @@ impl<'a> Client<'a> {
             auth_menu: Menu::new(),
             client_menu: Menu::new(),
             manager_menu: Menu::new(),
+            operator_menu: Menu::new(),
         };
 
         client.build_auth_menu();
         client.build_client_menu();
         client.build_manager_menu();
+        client.build_operator_menu();
 
         client
     }
@@ -60,8 +64,8 @@ impl<'a> Client<'a> {
     }
 
     pub fn build_client_menu(&mut self) {
-        self.client_menu.add_action('b' as u8, Box::new(SelectBankAction{}));
-        self.client_menu.add_action('i' as u8, Box::new(GetAuthInfoAction{}));
+
+        self.client_menu.add_action('t' as u8, Box::new(TransacionAction{}));
 
         let mut acc_menu = Menu::new();
         acc_menu.set_name("ACCOUNT menu");
@@ -84,7 +88,9 @@ impl<'a> Client<'a> {
         credit_menu.add_action('n' as u8, Box::new(CreditNewAction{}));
         self.client_menu.add_action('c' as u8, Box::new(credit_menu));
 
-        self.client_menu.add_action('t' as u8, Box::new(TransacionAction{}));
+        self.client_menu.add_action('b' as u8, Box::new(SelectBankAction{}));
+        self.client_menu.add_action('i' as u8, Box::new(GetAuthInfoAction{}));
+
     }
 
     pub fn build_manager_menu(&mut self) {
@@ -94,6 +100,13 @@ impl<'a> Client<'a> {
         self.manager_menu.add_action('e' as u8 , Box::new(GetTimeAction{}));
         self.manager_menu.add_action('c' as u8 , Box::new(CreditAcceptAction{}));
         self.manager_menu.add_action('t' as u8 , Box::new(TransactionUnprotecredAction{}));
+    }
+
+
+
+    pub fn build_operator_menu(&mut self){
+        self.operator_menu.add_action('t' as u8, Box::new(TransactionsGetAction{}));
+        self.operator_menu.add_action('r' as u8, Box::new(TransactionsRevertAction{}));
     }
 
     pub fn run(&mut self) {
@@ -107,6 +120,7 @@ impl<'a> Client<'a> {
         let user_menu = match self.user_type().unwrap() {
             UserType::Client => &mut self.client_menu,
             UserType::Manager => &mut self.manager_menu,
+            UserType::Operator => &mut self.operator_menu,
             _ => unimplemented!(),
         };
         loop {

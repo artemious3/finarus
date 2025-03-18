@@ -138,6 +138,23 @@ impl BankService {
         Ok(())
     }
 
+    pub fn transaction_revert(&mut self, params: &RequestParams) -> Result<(), ServerError>{
+        let ctx = self.get_request_context(params, UserType::Operator);
+        let inv_trans = self.transactions.last().ok_or(
+            ServerError::Forbidden("No transactions yet".to_string())
+        )?.inverse();
+
+        self.perform_transaction(inv_trans, false).map_err(
+            |e| ServerError::Forbidden(e.to_string())
+        )?;
+        Ok(())
+    }
+
+
+    pub fn transactions_get(&self) -> &Vec<Transaction>{
+        &self.transactions
+    }
+
     pub fn transaction(
         &mut self,
         transaction: Transaction,

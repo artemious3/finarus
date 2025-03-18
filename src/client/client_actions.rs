@@ -9,7 +9,7 @@ use l1::common::bank::BanksGetResp;
 use l1::common::credit::*;
 use l1::common::deposit::*;
 use l1::common::transaction::{Transaction, TransactionEndPoint};
-use l1::common::user::User;
+use l1::common::user::Client;
 use l1::common::Money;
 use std::sync::{Arc, Mutex};
 
@@ -47,7 +47,7 @@ impl Action for GetAuthInfoAction {
         let ctx = ctx_ref.lock().unwrap();
         let response = get_with_params(API!("/auth"), &ctx)?;
         let response_str = handle_errors(response)?;
-        let yaml = json_to_yaml::<User>(response_str).ok_or("Server sent wrong response")?;
+        let yaml = json_to_yaml::<Client>(response_str).ok_or("Server sent wrong response")?;
         println!("{}", yaml);
         Ok(())
     }
