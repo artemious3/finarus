@@ -14,8 +14,10 @@ pub struct Employee {
 pub struct SalaryProject {
     pub employees: Vec<Employee>,
     pub enterprise_accoint: TransactionEndPoint,
+    pub accepted : bool
 }
 
+#[derive(Default)]
 pub struct SalaryService {
     pub salary_requests: HashMap<Login, Vec<SalaryClientRequest>>, // enterprise name -> list of
     // salary requests
@@ -23,12 +25,11 @@ pub struct SalaryService {
 }
 
 impl SalaryService {
-    fn salary_request(
+    pub fn salary_request(
         &mut self,
-        enterprise_name: Login,
         req: SalaryClientRequest,
     ) -> Result<(), ServerError> {
-        match self.salary_requests.entry(enterprise_name) {
+        match self.salary_requests.entry(req.enterprise_name.clone()) {
             Entry::Vacant(en) => {
                 let vec = en.insert(Vec::new());
                 vec.push(req);
@@ -41,11 +42,10 @@ impl SalaryService {
         Ok(())
     }
 
-    fn salary_accept_decline(
+    pub fn salary_accept_decline(
         &mut self,
         enterprise_name: Login,
         req: &SalaryAcceptRequest,
-        accept: bool,
     ) -> Result<(), ServerError> {
         let salary_proj =
             self.salary_projects
@@ -53,6 +53,10 @@ impl SalaryService {
                 .ok_or(ServerError::BadRequest(
                     "No salary project for this enterprise".to_string(),
                 ))?;
+
+        if !salary_proj.accepted{
+            return Err(ServerError::Forbidden("Salary project not acccepted".to_string()))
+        }
 
         if let Entry::Occupied(mut en) = self.salary_requests.entry(enterprise_name) {
             let salary_requests = en.get_mut();
@@ -67,7 +71,7 @@ impl SalaryService {
                 en.remove();
             }
 
-            if accept {
+            if req.accept {
                 salary_proj.employees.push(Employee {
                     salary: req.salary,
                     login: request.client_login,
@@ -82,11 +86,14 @@ impl SalaryService {
     }
 
 
-    fn init_salary_proj(&mut self, enterprise_name: Login, account : TransactionEndPoint ){
+    pub fn init_salary_proj(&mut self, enterprise_name: Login, account : TransactionEndPoint ){
         self.salary_projects.insert(enterprise_name, SalaryProject{
             employees : Vec::new(),
-            enterprise_accoint : account
+            enterprise_accoint : account, 
+            accepted : false
         });
     }
+
+
 
 }

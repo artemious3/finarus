@@ -2,6 +2,7 @@ use crate::bank::Bank;
 use crate::server::RequestParams;
 use crate::server::ServerError;
 use crate::services::auth::AuthService;
+use crate::services::salary::SalaryService;
 use crate::services::time::TimeService;
 use crate::traits::dynamic::Dynamic;
 
@@ -10,6 +11,7 @@ use l1::common::auth::Token;
 use l1::common::bank::*;
 use l1::common::credit::*;
 use l1::common::deposit::*;
+use l1::common::salary::*;
 use l1::common::transaction::{Transaction, TransactionEndPoint};
 use l1::common::user::UserType;
 use l1::common::Money;
@@ -21,6 +23,7 @@ use std::collections::HashMap;
 pub struct BankService {
     auth: Arc<Mutex<AuthService>>,
     time: Arc<Mutex<TimeService>>,
+    salary: SalaryService,
 
     banks: HashMap<BIK, Bank>,
     transactions: Vec<Transaction>,
@@ -49,6 +52,7 @@ impl BankService {
             time: tm,
             banks: HashMap::new(),
             transactions: Vec::new(),
+            salary: SalaryService::default(),
         };
 
         //TMP
@@ -138,20 +142,20 @@ impl BankService {
         Ok(())
     }
 
-    pub fn transaction_revert(&mut self, params: &RequestParams) -> Result<(), ServerError>{
+    pub fn transaction_revert(&mut self, params: &RequestParams) -> Result<(), ServerError> {
         let ctx = self.get_request_context(params, UserType::Operator);
-        let inv_trans = self.transactions.last().ok_or(
-            ServerError::Forbidden("No transactions yet".to_string())
-        )?.inverse();
+        let inv_trans = self
+            .transactions
+            .last()
+            .ok_or(ServerError::Forbidden("No transactions yet".to_string()))?
+            .inverse();
 
-        self.perform_transaction(inv_trans, false).map_err(
-            |e| ServerError::Forbidden(e.to_string())
-        )?;
+        self.perform_transaction(inv_trans, false)
+            .map_err(|e| ServerError::Forbidden(e.to_string()))?;
         Ok(())
     }
 
-
-    pub fn transactions_get(&self) -> &Vec<Transaction>{
+    pub fn transactions_get(&self) -> &Vec<Transaction> {
         &self.transactions
     }
 
@@ -177,13 +181,16 @@ impl BankService {
         Ok(())
     }
 
-    pub fn transaction_unprotected(&mut self, transaction: Transaction, params: &RequestParams) -> Result<(), ServerError>{
+    pub fn transaction_unprotected(
+        &mut self,
+        transaction: Transaction,
+        params: &RequestParams,
+    ) -> Result<(), ServerError> {
         let _ctx = self.get_request_context(params, UserType::Manager);
         self.perform_transaction(transaction, true)
-            .map_err(|e| ServerError::Forbidden(e.to_string()) )?;
+            .map_err(|e| ServerError::Forbidden(e.to_string()))?;
 
         Ok(())
-        
     }
 
     pub fn banks_get(&self) -> BanksGetResp {
@@ -440,6 +447,65 @@ impl BankService {
             .credit_service
             .unaccepted_credits
             .to_vec())
+    }
+
+    pub fn salary_request(
+        &mut self,
+        req: SalaryClientRequest,
+        params: &RequestParams,
+    ) -> Result<(), ServerError> {
+        let ctx = self.get_request_context(params, UserType::Client)?;
+        if req.client_login != ctx.login {
+            Err(ServerError::BadRequest(
+                "Invalid salary login request".to_string(),
+            ))
+        } else {
+            let bik = req.account.bik;
+            self.get_bank(bik).ok_or(ServerError::BadRequest("Bad bank".to_string()))?
+                .validate_account_identity(req.account.account_id, &ctx.login)
+                .map_err(|e| ServerError::Forbidden(e.to_string()))?;
+            self.salary.salary_request(req)?;
+            Ok(())
+        }
+    }
+
+    pub fn salary_accept_decline(
+        &mut self,
+        req: SalaryAcceptRequest,
+        params: &RequestParams,
+    ) -> Result<(), ServerError> {
+        let ctx = self.get_request_context(params, UserType::Client)?;
+        self.salary.salary_accept_decline(ctx.login, &req)?;
+        Ok(())
+    }
+
+
+    pub fn init_salary_proj(
+        &mut self,
+        req : SalaryInitProjRequest,
+        params: &RequestParams
+    ) -> Result<(), ServerError> {
+        let ctx = self.get_request_context(params, UserType::Client)?;
+        self.salary.init_salary_proj(ctx.login, req.account);
+        Ok(())
+    }
+
+
+    pub fn salary_accept_decline_get(
+        &self,
+        params: &RequestParams
+    ) -> Result<&Vec<SalaryClientRequest>, ServerError> {
+        let ctx = self.get_request_context(params, UserType::Client)?;
+        Ok(self.salary.salary_requests.get(&ctx.login).ok_or(
+                ServerError::BadRequest("No salary requests for this enterprise".to_string())
+        )?)
+    }
+
+    pub fn accept_salary_proj(&mut self, req: SalaryAcceptProjRequest) -> Result<(), ServerError>{
+        self.salary.salary_projects.get_mut(&req.enterprise).ok_or(
+            ServerError::BadRequest("No salary project for this enterprise".to_string())
+        )?.accepted = true;
+        Ok(())
     }
 }
 

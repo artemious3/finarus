@@ -33,6 +33,7 @@ impl Action for LoginAction {
                 let token_data: SessionResponse =
                     serde_json::from_str(&resp_str).map_err(|_| "Server sent wrong response")?;
                 ctx.auth_info = Some(token_data);
+                ctx.login = Some(login_data.login.clone());
                 println!("Successfully authorized as {}\n", login_data.login);
                 Ok(())
     }

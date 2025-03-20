@@ -44,8 +44,11 @@ impl<'a> Menu<'a> {
         let _ = self.actions.push((opt, action));
         self
     }
-
 }
+
+
+
+
 
 impl<'a> Action for Menu<'a> {
     fn exec(&mut self, ctx: Arc<Mutex<ClientContext>>) -> Result<(), String> {

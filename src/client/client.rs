@@ -18,6 +18,7 @@ type AuthInfo = SessionResponse;
 
 pub struct ClientContext {
     pub auth_info: Option<AuthInfo>,
+    pub login : Option<String>,
     pub bik: Option<BIK>,
 }
 
@@ -35,6 +36,7 @@ impl<'a> Client<'a> {
         let mut client = Client {
             ctx: Arc::new(Mutex::new(ClientContext {
                 auth_info: None,
+                login:None,
                 bik: None,
             })),
             auth_menu: Menu::new(),
@@ -88,6 +90,13 @@ impl<'a> Client<'a> {
         credit_menu.add_action('n' as u8, Box::new(CreditNewAction{}));
         self.client_menu.add_action('c' as u8, Box::new(credit_menu));
 
+
+        let mut salary_menu = Menu::new();
+        salary_menu.set_name("SALARY");
+        salary_menu.add_action('r' as u8, Box::new(SalaryRequestAction{}));
+        self.client_menu.add_action('s' as u8, Box::new(salary_menu));
+
+
         self.client_menu.add_action('b' as u8, Box::new(SelectBankAction{}));
         self.client_menu.add_action('i' as u8, Box::new(GetAuthInfoAction{}));
 
@@ -99,7 +108,7 @@ impl<'a> Client<'a> {
         self.manager_menu.add_action('t' as u8 , Box::new(AdvanceTimeAction{}));
         self.manager_menu.add_action('e' as u8 , Box::new(GetTimeAction{}));
         self.manager_menu.add_action('c' as u8 , Box::new(CreditAcceptAction{}));
-        self.manager_menu.add_action('t' as u8 , Box::new(TransactionUnprotecredAction{}));
+        self.manager_menu.add_action('T' as u8 , Box::new(TransactionUnprotecredAction{}));
     }
 
 

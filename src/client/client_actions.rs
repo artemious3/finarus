@@ -11,6 +11,7 @@ use l1::common::deposit::*;
 use l1::common::transaction::{Transaction, TransactionEndPoint};
 use l1::common::user::Client;
 use l1::common::Money;
+use l1::common::salary::*;
 use std::sync::{Arc, Mutex};
 
 fn select_account(ctx: &ClientContext) -> Result<AccountID, String> {
@@ -353,5 +354,42 @@ impl Action for CreditGetAction {
     }
 }
 
+
+pub struct SalaryRequestAction {}
+
+impl Action for SalaryRequestAction {
+    fn name(&self) -> &'static str {
+        "REQUEST salary"
+    }
+
+    fn description(&self) -> &'static str {
+        "Request salary from specific enterprise. You should have been given the name of the enterprise"
+    }
+
+
+    fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
+        let ctx = ctx_ref.lock().unwrap();
+
+        let enterprise = String::input("Input enterprise name : ", 0).ok_or("Cancelled")?;
+        let acc = TransactionEndPoint::input("Input the account to pay salary: \n", 0).ok_or("Cancelled")?;
+
+
+        let req = SalaryClientRequest{
+            account : acc,
+            client_login : ctx.login.clone().unwrap(),
+            enterprise_name : enterprise
+        };
+
+
+        let resp = post_with_params(API!("/salary/request"), 
+                    serde_json::to_string(&req).unwrap(),
+                    &ctx)?;
+        handle_errors(resp)?;
+
+        Ok(())
+        
+    }
+
+}
 
 

@@ -85,6 +85,37 @@ impl Inputtable for i32 {
             .ok()
     }
 }
+
+impl Inputtable for Money {
+    type InputType = Money;
+    fn input(invitation: &str, n: i32) -> Option<Self::InputType> {
+        let i = input_until_valid::<String>(invitation, n - SPACE_PER_INDENT)?
+            .parse::<i32>()
+            .ok()?;
+
+        if i > 0 {
+            Some(Money(i))
+        } else {
+            None
+        }
+    }
+}
+
+impl Inputtable for bool {
+    type InputType = bool;
+    fn input(invitation: &str, n: i32) -> Option<Self::InputType> {
+        let s = input_until_valid::<String>(invitation, n - SPACE_PER_INDENT)?;
+        if s.to_lowercase() == "y\n" {
+            Some(true)
+        } else if s.to_lowercase() == "n\n" {
+            Some(false)
+        } else {
+            None
+        }
+    }
+}
+
+
 impl Inputtable for u8 {
     type InputType = u8;
     fn input(invitation: &str, n: i32) -> Option<Self::InputType> {

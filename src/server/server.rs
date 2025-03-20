@@ -7,6 +7,7 @@ use l1::common::time::TimeAdvanceReq;
 use l1::common::transaction::Transaction;
 use l1::common::credit::*;
 use l1::common::user::UserData;
+use l1::common::salary::*;
 
 use crate::traits::dynamic::Dynamic;
 use crate::traits::storable::Storable;
@@ -297,6 +298,13 @@ impl Server {
                     Ok( Response::text("unimplemented") )
                 }
 
+                APIV1!("/salary/request") => {
+                    let mut banks_service = self.banks.lock().expect("Mutex");
+                    let req : SalaryClientRequest = deserialize_request(req)?;
+                    banks_service.salary_request(req, params)?;
+                    Ok(Response::text("Ok"))
+                }
+
                 _ => Err(ServerError::NotFound("".to_string())),
             },
 
@@ -314,7 +322,7 @@ impl Server {
         match req.method() {
             "GET" => match url.as_str(){
                 APIV1!("/auth/accept") => {
-                    let mut auth = self.auth.lock().expect("Mutex error");
+                    let auth = self.auth.lock().expect("Mutex error");
                     let registration_requests = auth.get_registration_requests();
                     Ok(Response::json(&registration_requests))
                 }
@@ -397,6 +405,13 @@ impl Server {
                     banks.transaction_revert(params)?;
                     Ok(Response::text("Ok"))
                 },
+                APIV1!("/salary/accept_proj")=> {
+                    let mut banks = self.banks.lock().expect("Mutex");
+                    let req : SalaryAcceptProjRequest = deserialize_request(req)?;
+                    banks.accept_salary_proj(req)?;
+                    Ok(Response::text("Ok"))
+
+                }
                 _ => Err(ServerError::NotFound("".into()))
             },
             _ => Err(ServerError::MethodNotAllowed("".into()))
@@ -418,17 +433,36 @@ impl Server {
         req: &Request,
         params : &RequestParams
     ) -> Result<Response, ServerError> {
-        
+           let url = req.url();
 
         match req.method() {
 
-            "GET" => {
-                    unimplemented!();
+            "GET" => match url.as_str(){
+                "/salary/accept" => {
+                    let bank = self.banks.lock().unwrap();
+                    let resp = bank.salary_accept_decline_get(params)?;
+                    Ok(Response::json(resp))
+                }
+                _ => Err(ServerError::NotFound("".into()))
             }
               
-            "POST" => {
-                    unimplemented!();
+            "POST" => match url.as_str(){
+                "/salary/new" => {
+                    let mut bank = self.banks.lock().unwrap();
+                    let req : SalaryInitProjRequest = deserialize_request(req)?;
+                    bank.init_salary_proj(req, params)?;
+                    Ok(Response::text("Ok"))
+                }
+                "/salary/accept" => {
+                    let mut bank = self.banks.lock().unwrap();
+                    let req : SalaryAcceptRequest = deserialize_request(req)?;
+                    bank.salary_accept_decline(req, params)?;
+                    Ok(Response::text("Ok"))
+                }
+                _ => Err(ServerError::NotFound("".into()))
             }
+                
+            
             _  => Err(ServerError::MethodNotAllowed(
                 "Method not allowed".to_string(),
             )),
