@@ -8,6 +8,7 @@ use crate::auth_actions::*;
 use crate::client_actions::*;
 use crate::manager_actions::*;
 use crate::operator_actions::*;
+use crate::enterprise_action::*;
 
 
 
@@ -28,6 +29,7 @@ pub struct Client<'a> {
     manager_menu: Menu<'a>,
     client_menu: Menu<'a>,
     operator_menu: Menu<'a>,
+    enterprise_menu: Menu<'a>,
 }
 
 
@@ -43,12 +45,14 @@ impl<'a> Client<'a> {
             client_menu: Menu::new(),
             manager_menu: Menu::new(),
             operator_menu: Menu::new(),
+            enterprise_menu: Menu::new(),
         };
 
         client.build_auth_menu();
         client.build_client_menu();
         client.build_manager_menu();
         client.build_operator_menu();
+        client.build_enterprise_menu();
 
         client
     }
@@ -118,6 +122,14 @@ impl<'a> Client<'a> {
         self.operator_menu.add_action('r' as u8, Box::new(TransactionsRevertAction{}));
     }
 
+
+    pub fn build_enterprise_menu(&mut self){
+        self.enterprise_menu.add_action('i' as u8, Box::new(SalaryInitProjectAction{}));
+        self.enterprise_menu.add_action('a' as u8, Box::new(SalaryAcceptAction{}));
+        self.enterprise_menu.add_action('a' as u8, Box::new(AccountOpenAction{}));
+        self.enterprise_menu.add_action('a' as u8, Box::new(AccountsGetAction{}));
+    }
+
     pub fn run(&mut self) {
         loop {
             let _ = self.auth_menu.exec(self.ctx.clone());
@@ -130,7 +142,8 @@ impl<'a> Client<'a> {
             UserType::Client => &mut self.client_menu,
             UserType::Manager => &mut self.manager_menu,
             UserType::Operator => &mut self.operator_menu,
-            _ => unimplemented!(),
+            UserType::EnterpriseSpecialist => &mut self.enterprise_menu,
+            _ => unimplemented!()
         };
         loop {
             let _ = user_menu.exec(self.ctx.clone());

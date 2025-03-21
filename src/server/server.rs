@@ -410,7 +410,6 @@ impl Server {
                     let req : SalaryAcceptProjRequest = deserialize_request(req)?;
                     banks.accept_salary_proj(req)?;
                     Ok(Response::text("Ok"))
-
                 }
                 _ => Err(ServerError::NotFound("".into()))
             },
@@ -438,7 +437,13 @@ impl Server {
         match req.method() {
 
             "GET" => match url.as_str(){
-                "/salary/accept" => {
+
+                APIV1!("/account") => {
+                    let banks_service = self.banks.lock().expect("Mutex");
+                    let accounts_resp = banks_service.accounts_get(params)?;
+                    Ok(Response::json(&accounts_resp))
+                }
+                APIV1!("/salary/accept") => {
                     let bank = self.banks.lock().unwrap();
                     let resp = bank.salary_accept_decline_get(params)?;
                     Ok(Response::json(resp))
@@ -447,13 +452,24 @@ impl Server {
             }
               
             "POST" => match url.as_str(){
-                "/salary/new" => {
+                APIV1!("/account/open") => {
+                    let mut banks_service = self.banks.lock().expect("Mutex");
+                    let resp = banks_service.account_open(params)?;
+                    Ok(Response::json(&resp))
+                }
+                APIV1!("/account/close") => {
+                    let mut banks_service = self.banks.lock().expect("Mutex");
+                    let close_req : AccountCloseReq = deserialize_request(req)?;
+                    banks_service.account_close(close_req, params)?;
+                    Ok(Response::text("Ok"))
+                }
+                APIV1!("/salary/new") => {
                     let mut bank = self.banks.lock().unwrap();
                     let req : SalaryInitProjRequest = deserialize_request(req)?;
                     bank.init_salary_proj(req, params)?;
                     Ok(Response::text("Ok"))
                 }
-                "/salary/accept" => {
+                APIV1!("/salary/accept") => {
                     let mut bank = self.banks.lock().unwrap();
                     let req : SalaryAcceptRequest = deserialize_request(req)?;
                     bank.salary_accept_decline(req, params)?;

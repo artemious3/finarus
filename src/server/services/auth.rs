@@ -88,6 +88,19 @@ impl AuthService {
             }
         );
 
+        let mut hasher = sha2::Sha256::new();
+        hasher.update("ent");
+        let hash = format!("{:x}", hasher.finalize());
+        service.users.insert(
+            "ent".to_string(),
+            InternalUser {
+                user_type: UserType::EnterpriseSpecialist,
+                login : "ent".to_string(),
+                password_hash: hash,
+                public_user : UserData::None
+            }
+        );
+
         // TMP!!!
 
         service
