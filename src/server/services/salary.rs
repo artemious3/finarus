@@ -3,19 +3,9 @@ use l1::common::auth::Login;
 use l1::common::salary::*;
 use l1::common::transaction::TransactionEndPoint;
 use l1::common::Money;
+use serde::{Serialize, Deserialize};
 use std::collections::hash_map::*;
 
-pub struct Employee {
-    pub login: Login,
-    pub account: TransactionEndPoint,
-    pub salary: Money,
-}
-
-pub struct SalaryProject {
-    pub employees: Vec<Employee>,
-    pub enterprise_accoint: TransactionEndPoint,
-    pub accepted : bool
-}
 
 #[derive(Default)]
 pub struct SalaryService {

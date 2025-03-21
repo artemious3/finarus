@@ -2,8 +2,7 @@ use std::collections::{hash_map::Entry, HashMap};
 
 use crate::user::InternalUser;
 use l1::common::auth::*;
-use l1::common::user::UserType;
-use l1::common::user::UserData;
+use l1::common::user::*;
 use rand::prelude::Rng;
 
 use sha2::Digest;
@@ -54,7 +53,7 @@ impl AuthService {
         service.users.insert(
             "mng".to_string(),
             InternalUser {
-                user_type: UserType::Manager,
+                user_type: MANAGER,
                 login: "mng".to_string(),
                 password_hash: hash,
                 public_user: UserData::None
@@ -68,7 +67,7 @@ impl AuthService {
         service.users.insert(
             "cli".to_string(),
             InternalUser {
-                user_type: UserType::Client,
+                user_type: CLIENT,
                 login : "cli".to_string(),
                 password_hash: hash,
                 public_user : UserData::None 
@@ -81,7 +80,7 @@ impl AuthService {
         service.users.insert(
             "opr".to_string(),
             InternalUser {
-                user_type: UserType::Operator,
+                user_type: OPERATOR,
                 login : "opr".to_string(),
                 password_hash: hash,
                 public_user : UserData::None
@@ -94,7 +93,7 @@ impl AuthService {
         service.users.insert(
             "ent".to_string(),
             InternalUser {
-                user_type: UserType::EnterpriseSpecialist,
+                user_type: ENTERPRISE,
                 login : "ent".to_string(),
                 password_hash: hash,
                 public_user : UserData::None
@@ -110,7 +109,7 @@ impl AuthService {
         let usr = self
             .get_user_by_token(token)
             .ok_or("No session with given token".to_string())?;
-        if usr.user_type != role {
+        if (usr.user_type & role) == 0 {
             Err("Permission denied".to_string())
         } else {
             Ok(usr.login.clone())
@@ -191,7 +190,7 @@ impl AuthService {
             hasher.update(&user.login_data.password);
             let hash = format!("{:x}", hasher.finalize());
             let internal_user = InternalUser {
-                user_type: UserType::Client, // by default only client is manually registered.
+                user_type: CLIENT, // by default only client is manually registered.
                 login: user.login_data.password,
                 password_hash: hash,
                 public_user: UserData::ClientData(user.user_data),

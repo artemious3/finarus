@@ -5,14 +5,12 @@ use crate::common::validate::Validate;
 use std::str;
 
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
-pub enum UserType {
-    Client,
-    Operator,
-    Manager,
-    EnterpriseSpecialist,
-    Administrator
-}
+pub type UserType = u32;
+pub const CLIENT : UserType = 0b1;
+pub const OPERATOR : UserType = 0b10;
+pub const MANAGER : UserType = 0b100;
+pub const ENTERPRISE : UserType = 0b1000;
+pub const ADMINISTRATOR : UserType = 0b10000;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserPersonalName{

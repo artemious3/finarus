@@ -105,9 +105,9 @@ impl Inputtable for bool {
     type InputType = bool;
     fn input(invitation: &str, n: i32) -> Option<Self::InputType> {
         let s = input_until_valid::<String>(invitation, n - SPACE_PER_INDENT)?;
-        if s.to_lowercase() == "y\n" {
+        if s.to_lowercase() == "y" {
             Some(true)
-        } else if s.to_lowercase() == "n\n" {
+        } else if s.to_lowercase() == "n" {
             Some(false)
         } else {
             None

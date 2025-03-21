@@ -1,7 +1,7 @@
 use crate::inputtable::Inputtable;
 use crate::menu::*;
 use l1::common::auth::SessionResponse;
-use l1::common::user:: UserType;
+use l1::common::user:: *;
 use l1::common::bank:: BIK;
 
 use crate::auth_actions::*;
@@ -120,14 +120,18 @@ impl<'a> Client<'a> {
     pub fn build_operator_menu(&mut self){
         self.operator_menu.add_action('t' as u8, Box::new(TransactionsGetAction{}));
         self.operator_menu.add_action('r' as u8, Box::new(TransactionsRevertAction{}));
+        self.operator_menu.add_action('a' as u8, Box::new(SalaryAcceptProjAction{}));
     }
 
 
     pub fn build_enterprise_menu(&mut self){
+        self.enterprise_menu.add_action('b' as u8, Box::new(SelectBankAction{}));
         self.enterprise_menu.add_action('i' as u8, Box::new(SalaryInitProjectAction{}));
         self.enterprise_menu.add_action('a' as u8, Box::new(SalaryAcceptAction{}));
-        self.enterprise_menu.add_action('a' as u8, Box::new(AccountOpenAction{}));
-        self.enterprise_menu.add_action('a' as u8, Box::new(AccountsGetAction{}));
+        self.enterprise_menu.add_action('o' as u8, Box::new(AccountOpenAction{}));
+        self.enterprise_menu.add_action('g' as u8, Box::new(AccountsGetAction{}));
+        self.enterprise_menu.add_action('G' as u8, Box::new(SalaryProjectGetAction{}));
+        self.enterprise_menu.add_action('t' as u8, Box::new(TransacionAction{}));
     }
 
     pub fn run(&mut self) {
@@ -139,10 +143,10 @@ impl<'a> Client<'a> {
         }
 
         let user_menu = match self.user_type().unwrap() {
-            UserType::Client => &mut self.client_menu,
-            UserType::Manager => &mut self.manager_menu,
-            UserType::Operator => &mut self.operator_menu,
-            UserType::EnterpriseSpecialist => &mut self.enterprise_menu,
+           CLIENT => &mut self.client_menu,
+           MANAGER => &mut self.manager_menu,
+           OPERATOR => &mut self.operator_menu,
+           ENTERPRISE => &mut self.enterprise_menu,
             _ => unimplemented!()
         };
         loop {

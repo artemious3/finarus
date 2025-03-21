@@ -3,7 +3,9 @@ use std::sync::{Arc, Mutex};
 use crate::client::ClientContext;
 use crate::utils::*;
 use l1::common::transaction::*;
+use crate::selector::*;
 use std::io::Write;
+use l1::common::salary::*;
 
 pub fn flush(){
     std::io::stdout().flush().unwrap();
@@ -72,8 +74,41 @@ impl Action for TransactionsRevertAction {
         Ok(())
     }
 
-
-
 }
 
 
+pub struct SalaryAcceptProjAction {}
+
+impl Action for SalaryAcceptProjAction {
+    fn name(&self) -> &'static str {
+        "ACCEPT salary project"
+    }
+
+
+    fn description(&self) -> &'static str {
+        "Accept salary project"
+    }
+
+    fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
+        let ctx = ctx_ref.lock().unwrap();
+        let requests_resp = get_with_params(API!("/salary/accept_proj"), &ctx)?;
+        let requests : Vec<SalaryProjectResp> = serde_json::from_str(&handle_errors(requests_resp)?)
+            .map_err(|_| "Server sent wrong response".to_string())?;
+
+        let idx = select_idx(&requests).ok_or("Cancelled".to_string())?;
+
+
+        let accept_req = SalaryAcceptProjRequest {
+            enterprise : requests[idx].enterprise.clone()
+        };
+
+        let resp = post_with_params(API!("/salary/accept_proj"), 
+            serde_json::to_string(&accept_req).unwrap(), 
+            &ctx)?;
+
+        handle_errors(resp)?;
+        Ok(())
+    }
+
+
+}

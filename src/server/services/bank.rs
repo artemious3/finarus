@@ -13,7 +13,8 @@ use l1::common::credit::*;
 use l1::common::deposit::*;
 use l1::common::salary::*;
 use l1::common::transaction::{Transaction, TransactionEndPoint};
-use l1::common::user::UserType;
+use l1::common::user::*;
+
 use l1::common::Money;
 use std::sync::{Arc, Mutex};
 
@@ -32,7 +33,7 @@ pub struct BankService {
 struct BankRequestContext {
     login: String,
     token: Token,
-    bik: BIK,
+    bik: Option<BIK>,
 }
 
 fn credit_monthly_pay(params: &CreditParams) -> Money {
@@ -73,6 +74,7 @@ impl BankService {
         &self,
         params: &RequestParams,
         role: UserType,
+        bank_required : bool
     ) -> Result<BankRequestContext, ServerError> {
         let token = params
             .token
@@ -81,9 +83,11 @@ impl BankService {
         let login = auth
             .validate_authentification(token, role)
             .map_err(|_| ServerError::Forbidden(String::new()))?;
-        let bik = params
+        let bik = if bank_required {
+     Some(params
             .bik
-            .ok_or(ServerError::BadRequest("No bank".to_string()))?;
+            .ok_or(ServerError::BadRequest("No bank".to_string()))?)
+        } else {None};
         Ok(BankRequestContext { token, login, bik })
     }
 
@@ -143,7 +147,7 @@ impl BankService {
     }
 
     pub fn transaction_revert(&mut self, params: &RequestParams) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params, UserType::Operator);
+        let _ = self.get_request_context(params, OPERATOR, false);
         let inv_trans = self
             .transactions
             .last()
@@ -164,10 +168,10 @@ impl BankService {
         transaction: Transaction,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, CLIENT | ENTERPRISE, true)?; 
         let bank = self
             .banks
-            .get_mut(&ctx.bik)
+            .get_mut(&ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
 
         bank.validate_account_identity(transaction.src.account_id, &ctx.login)
@@ -181,12 +185,13 @@ impl BankService {
         Ok(())
     }
 
+
     pub fn transaction_unprotected(
         &mut self,
         transaction: Transaction,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let _ctx = self.get_request_context(params, UserType::Manager);
+        let _ctx = self.get_request_context(params,MANAGER, false);
         self.perform_transaction(transaction, true)
             .map_err(|e| ServerError::Forbidden(e.to_string()))?;
 
@@ -204,10 +209,10 @@ impl BankService {
     }
 
     pub fn account_open(&mut self, params: &RequestParams) -> Result<AccountOpenResp, ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, CLIENT | ENTERPRISE, true)?;
         let bank = self
             .banks
-            .get_mut(&ctx.bik)
+            .get_mut(&ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
         let new_acc_id = bank
             .account_new(&ctx.login)
@@ -223,10 +228,10 @@ impl BankService {
         req: AccountCloseReq,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, CLIENT | ENTERPRISE, true)?;
         let bank = self
             .banks
-            .get_mut(&ctx.bik)
+            .get_mut(&ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
         let closed_acc_id = req.account_id;
         bank.account_close(&ctx.login, closed_acc_id)
@@ -236,10 +241,10 @@ impl BankService {
     }
 
     pub fn accounts_get(&self, params: &RequestParams) -> Result<AccountsGetResp, ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, CLIENT | ENTERPRISE, true)?;
         let bank = self
             .banks
-            .get(&ctx.bik)
+            .get(&ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
 
         let accounts = bank
@@ -254,10 +259,10 @@ impl BankService {
         req: DepositNewRequest,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, CLIENT, true)?;
         let now = self.time.lock().unwrap().get_time();
 
-        self.get_bank(ctx.bik)
+        self.get_bank(ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Bad bank".to_string()))?
             .validate_account_identity(req.src_account, &ctx.login)
             .map_err(|_| {
@@ -268,7 +273,7 @@ impl BankService {
         self.perform_transaction(
             Transaction {
                 src: TransactionEndPoint {
-                    bik: ctx.bik,
+                    bik: ctx.bik.unwrap(),
                     account_id: req.src_account,
                 },
                 dst: TransactionEndPoint {
@@ -290,7 +295,7 @@ impl BankService {
             initial_amount: req.amount,
             current_amount: req.amount,
         };
-        self.get_bank_mut(ctx.bik)
+        self.get_bank_mut(ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Bad bank".to_string()))?
             .deposit_service
             .add_deposit(ctx.login, deposit);
@@ -302,15 +307,15 @@ impl BankService {
         req: DepositWithdrawRequest,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, CLIENT, true)?;
         let cur_time = self.time.lock().unwrap().get_time();
-        self.get_bank(ctx.bik)
+        self.get_bank(ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Bad bank".to_string()))?
             .validate_account_identity(req.dst_account, &ctx.login)
             .map_err(|_| ServerError::Forbidden("This account does not exist".to_string()))?;
 
         let withdrawn = self
-            .get_bank_mut(ctx.bik)
+            .get_bank_mut(ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Bad bank".to_string()))?
             .deposit_service
             .withdraw(ctx.login, req.deposit_idx, cur_time)
@@ -323,7 +328,7 @@ impl BankService {
                     account_id: 0,
                 },
                 dst: TransactionEndPoint {
-                    bik: ctx.bik,
+                    bik: ctx.bik.unwrap(),
                     account_id: req.dst_account,
                 },
                 amount: withdrawn,
@@ -336,10 +341,10 @@ impl BankService {
     }
 
     pub fn deposits_get(&self, params: &RequestParams) -> Result<Vec<Deposit>, ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, CLIENT, true)?;
         let bank = self
             .banks
-            .get(&ctx.bik)
+            .get(&ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Invalid BIK".to_string()))?;
 
         Ok(bank.deposit_service.get(ctx.login).clone())
@@ -350,9 +355,9 @@ impl BankService {
         req: CreditParams,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, CLIENT, true)?;
         let bank = self
-            .get_bank_mut(ctx.bik)
+            .get_bank_mut(ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Bad bank".to_string()))?;
 
         bank.validate_account_identity(req.src_account, &ctx.login)
@@ -372,11 +377,11 @@ impl BankService {
         req: CreditAcceptRequest,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params, UserType::Manager)?;
+        let ctx = self.get_request_context(params, MANAGER, true)?;
         let now = self.time.lock().unwrap().get_time();
 
         let credit_template = self
-            .get_bank(ctx.bik)
+            .get_bank(ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Bad bank".to_string()))?
             .credit_service
             .unaccepted_credits
@@ -392,7 +397,7 @@ impl BankService {
                     account_id: 0,
                 },
                 dst: TransactionEndPoint {
-                    bik: ctx.bik,
+                    bik: ctx.bik.unwrap(),
                     account_id: credit_template.params.src_account,
                 },
             },
@@ -409,7 +414,7 @@ impl BankService {
         };
 
         let bank = self
-            .get_bank_mut(ctx.bik)
+            .get_bank_mut(ctx.bik.unwrap())
             .expect("Bank not found after it was found");
         bank.credit_service.unaccepted_credits.swap_remove(req.idx);
 
@@ -423,10 +428,10 @@ impl BankService {
     }
 
     pub fn credit_get(&self, params: &RequestParams) -> Result<Vec<Credit>, ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, CLIENT, true)?;
 
         Ok(self
-            .get_bank(ctx.bik)
+            .get_bank(ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Bad bank".into()))?
             .credit_service
             .accepted_credits
@@ -439,10 +444,10 @@ impl BankService {
         &self,
         params: &RequestParams,
     ) -> Result<Vec<CreditUnaccepted>, ServerError> {
-        let ctx = self.get_request_context(params, UserType::Manager)?;
+        let ctx = self.get_request_context(params,MANAGER, true)?;
 
         Ok(self
-            .get_bank(ctx.bik)
+            .get_bank(ctx.bik.unwrap())
             .ok_or(ServerError::BadRequest("Bad bank".into()))?
             .credit_service
             .unaccepted_credits
@@ -454,16 +459,20 @@ impl BankService {
         req: SalaryClientRequest,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params,CLIENT, true)?;
         if req.client_login != ctx.login {
             Err(ServerError::BadRequest(
                 "Invalid salary login request".to_string(),
             ))
         } else {
             let bik = req.account.bik;
+
+            //ensure that requested account belongs to user
             self.get_bank(bik).ok_or(ServerError::BadRequest("Bad bank".to_string()))?
                 .validate_account_identity(req.account.account_id, &ctx.login)
                 .map_err(|e| ServerError::Forbidden(e.to_string()))?;
+
+
             self.salary.salary_request(req)?;
             Ok(())
         }
@@ -474,7 +483,7 @@ impl BankService {
         req: SalaryAcceptRequest,
         params: &RequestParams,
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, ENTERPRISE, false)?;
         self.salary.salary_accept_decline(ctx.login, &req)?;
         Ok(())
     }
@@ -485,7 +494,11 @@ impl BankService {
         req : SalaryInitProjRequest,
         params: &RequestParams
     ) -> Result<(), ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, ENTERPRISE, false)?;
+        self.banks.get(&req.account.bik)
+            .ok_or(ServerError::NotFound("Bank not found".to_string()))?
+            .validate_account_identity(req.account.account_id, &ctx.login)
+            .map_err(|e| ServerError::Forbidden(e.to_string()))?;
         self.salary.init_salary_proj(ctx.login, req.account);
         Ok(())
     }
@@ -495,10 +508,17 @@ impl BankService {
         &self,
         params: &RequestParams
     ) -> Result<&Vec<SalaryClientRequest>, ServerError> {
-        let ctx = self.get_request_context(params, UserType::Client)?;
+        let ctx = self.get_request_context(params, ENTERPRISE, false)?;
         Ok(self.salary.salary_requests.get(&ctx.login).ok_or(
                 ServerError::BadRequest("No salary requests for this enterprise".to_string())
         )?)
+    }
+
+
+    pub fn get_salary_proj(&self, enterprise : String) -> Result<SalaryProject, ServerError> {
+        Ok(self.salary.salary_projects.get(&enterprise).ok_or(
+            ServerError::NotFound("Enterprise not found".to_string())
+        )?.clone())
     }
 
     pub fn accept_salary_proj(&mut self, req: SalaryAcceptProjRequest) -> Result<(), ServerError>{
@@ -506,6 +526,16 @@ impl BankService {
             ServerError::BadRequest("No salary project for this enterprise".to_string())
         )?.accepted = true;
         Ok(())
+    }
+    pub fn get_accept_salary_proj(&mut self) -> 
+        Result<Vec<SalaryProjectResp>, ServerError>{
+
+       Ok( self.salary.salary_projects.iter()
+           .filter(|kv| kv.1.accepted  == false)
+           .map(
+               |kv| SalaryProjectResp{enterprise : kv.0.clone(),
+                                    proj : kv.1.clone()}
+       ).collect() )
     }
 }
 

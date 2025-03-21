@@ -44,7 +44,7 @@ impl Bank {
         let maybe_acc_id = self
             .clients
             .get(login)
-            .ok_or("Client not found")?
+            .ok_or("Client not found. Open at least one ACCOUNT in the bank")?
             .iter()
             .find(|v: _| **v == acc);
         if let Some(acc_id) = maybe_acc_id {

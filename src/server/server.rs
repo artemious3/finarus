@@ -1,26 +1,25 @@
+use l1::common::account::*;
 use l1::common::auth::*;
 use l1::common::bank::BIK;
-use l1::common::account::*;
+use l1::common::credit::*;
 use l1::common::deposit::{DepositNewRequest, DepositWithdrawRequest, DepositWithdrawResponse};
-use l1::common::user::UserType;
+use l1::common::salary::*;
 use l1::common::time::TimeAdvanceReq;
 use l1::common::transaction::Transaction;
-use l1::common::credit::*;
 use l1::common::user::UserData;
-use l1::common::salary::*;
+use l1::common::user::*;
 
-use crate::traits::dynamic::Dynamic;
-use crate::traits::storable::Storable;
+use crate::runner::ServerRunner;
 use crate::services::auth::AuthService;
 use crate::services::bank::BankService;
-use crate::runner::ServerRunner;
 use crate::services::time::TimeService;
+use crate::traits::dynamic::Dynamic;
+use crate::traits::storable::Storable;
 
 use std::str::FromStr;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-
 
 use log::*;
 
@@ -37,7 +36,7 @@ pub enum ServerError {
     MethodNotAllowed(String),
 }
 
-const RUNNER_SLEEP_TIME : u64 = 24*60*60; // 24 hours
+const RUNNER_SLEEP_TIME: u64 = 24 * 60 * 60; // 24 hours
 
 pub fn deserialize_request<T>(body: &Request) -> Result<T, ServerError>
 where
@@ -108,8 +107,8 @@ fn map_err_to_response(opt_response: Result<Response, ServerError>) -> Response 
 pub struct Server {
     auth: Arc<Mutex<AuthService>>,
     banks: Mutex<BankService>,
-    time : Arc<Mutex<TimeService>>,
-    dynamic_runner : ServerRunner
+    time: Arc<Mutex<TimeService>>,
+    dynamic_runner: ServerRunner,
 }
 
 impl Server {
@@ -121,10 +120,14 @@ impl Server {
             auth,
             banks,
             time,
-            dynamic_runner : ServerRunner::new()
+            dynamic_runner: ServerRunner::new(),
         }));
 
-        server.lock().expect("Mutex").dynamic_runner.run(&server, Duration::from_secs(RUNNER_SLEEP_TIME));
+        server
+            .lock()
+            .expect("Mutex")
+            .dynamic_runner
+            .run(&server, Duration::from_secs(RUNNER_SLEEP_TIME));
         server.clone()
     }
 
@@ -161,8 +164,7 @@ impl Server {
                 }
 
                 APIV1!("/auth/register") => {
-                    let register_data: RegisterUserReq =
-                        deserialize_request(&req)?; 
+                    let register_data: RegisterUserReq = deserialize_request(&req)?;
                     auth.request_add_user(register_data)
                         .map_err(|err: _| ServerError::Forbidden(err.to_string()))?;
                     Ok(Response::text("Ok").with_status_code(200))
@@ -190,13 +192,12 @@ impl Server {
         };
 
         match usr_type {
-            UserType::Client => self.handle_client(req, params),
-            UserType::Manager => self.handle_manager(req, params),
-            UserType::EnterpriseSpecialist => self.handle_enterprise_specialist(req, params),
-            UserType::Operator => self.handle_operator(req, params),
-            _ => unimplemented!(),
+            CLIENT => self.handle_client(req, params),
+            MANAGER => self.handle_manager(req, params),
+            ENTERPRISE => self.handle_enterprise_specialist(req, params),
+            OPERATOR => self.handle_operator(req, params),
+            _ => Err(ServerError::BadRequest("Bad user".to_string())),
         }
-
     }
 
     pub fn handle_client(
@@ -208,7 +209,6 @@ impl Server {
 
         match req.method() {
             "GET" => match req.url().as_str() {
-
                 APIV1!("/auth") => {
                     let auth = self.auth.lock().expect("Mutex error");
                     let usr_info = &auth
@@ -216,13 +216,17 @@ impl Server {
                         .ok_or(ServerError::BadRequest("Bad token".to_string()))?
                         .public_user;
 
-                    if let UserData::ClientData(client) = usr_info{
+                    if let UserData::ClientData(client) = usr_info {
                         Ok(Response::json(&client))
                     } else {
                         Err(ServerError::InternalError("No client data".to_string()))
                     }
                 }
-
+                APIV1!("/banks") => {
+                    let banks_service = self.banks.lock().expect("Mutex");
+                    let resp = banks_service.banks_get();
+                    Ok(Response::json(&resp))
+                }
 
                 APIV1!("/account") => {
                     let banks_service = self.banks.lock().expect("Mutex");
@@ -230,25 +234,17 @@ impl Server {
                     Ok(Response::json(&accounts_resp))
                 }
 
-                APIV1!("/banks") => {
-                    let banks_service = self.banks.lock().expect("Mutex");
-                    let resp = banks_service.banks_get();
-                    Ok(Response::json(&resp))
-                }
-
                 APIV1!("/deposit") => {
                     let banks_service = self.banks.lock().expect("Mutex");
                     let deposits = banks_service.deposits_get(params)?;
-                    Ok( Response::json(&deposits) )
+                    Ok(Response::json(&deposits))
                 }
-
 
                 APIV1!("/credit") => {
                     let banks_service = self.banks.lock().expect("Mutex");
                     let credits = banks_service.credit_get(params)?;
                     Ok(Response::json(&credits))
                 }
-                
 
                 _ => Err(ServerError::NotFound("".to_string())),
             },
@@ -261,19 +257,19 @@ impl Server {
                 }
                 APIV1!("/account/close") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
-                    let close_req : AccountCloseReq = deserialize_request(req)?;
+                    let close_req: AccountCloseReq = deserialize_request(req)?;
                     banks_service.account_close(close_req, params)?;
                     Ok(Response::text("Ok"))
                 }
                 APIV1!("/deposit/new") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
-                    let deposit_new_req : DepositNewRequest = deserialize_request(req)?;
+                    let deposit_new_req: DepositNewRequest = deserialize_request(req)?;
                     banks_service.deposit_new(deposit_new_req, params)?;
                     Ok(Response::text("Ok"))
-                },
+                }
                 APIV1!("/deposit/withdraw") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
-                    let deposit_withdraw_req : DepositWithdrawRequest = deserialize_request(req)?;
+                    let deposit_withdraw_req: DepositWithdrawRequest = deserialize_request(req)?;
                     banks_service.deposit_withdraw(deposit_withdraw_req, params)?;
                     Ok(Response::text("Ok"))
                 }
@@ -282,25 +278,25 @@ impl Server {
                 }
                 APIV1!("/transaction") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
-                    let transaction : Transaction = deserialize_request::<Transaction>(req)?;
+                    let transaction: Transaction = deserialize_request::<Transaction>(req)?;
                     banks_service.transaction(transaction, params)?;
                     Ok(Response::text("Ok"))
                 }
 
                 APIV1!("/credit/new") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
-                    let new_req : CreditParams = deserialize_request(req)?;
+                    let new_req: CreditParams = deserialize_request(req)?;
                     banks_service.credit_new(new_req, params)?;
                     Ok(Response::text("Ok"))
                 }
                 APIV1!("/credit/clear") => {
                     // unimplemented!();
-                    Ok( Response::text("unimplemented") )
+                    Ok(Response::text("unimplemented"))
                 }
 
                 APIV1!("/salary/request") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
-                    let req : SalaryClientRequest = deserialize_request(req)?;
+                    let req: SalaryClientRequest = deserialize_request(req)?;
                     banks_service.salary_request(req, params)?;
                     Ok(Response::text("Ok"))
                 }
@@ -315,12 +311,12 @@ impl Server {
     pub fn handle_manager(
         &mut self,
         req: &Request,
-        params: &RequestParams
+        params: &RequestParams,
     ) -> Result<Response, ServerError> {
         let url = req.url();
 
         match req.method() {
-            "GET" => match url.as_str(){
+            "GET" => match url.as_str() {
                 APIV1!("/auth/accept") => {
                     let auth = self.auth.lock().expect("Mutex error");
                     let registration_requests = auth.get_registration_requests();
@@ -335,7 +331,7 @@ impl Server {
                     let time = self.time.lock().unwrap().get_time();
                     Ok(Response::json(&time))
                 }
-                APIV1!("/credit/accept")=> {
+                APIV1!("/credit/accept") => {
                     let banks_service = self.banks.lock().expect("Mutex");
                     let credits = banks_service.credit_get_unaccepted(params)?;
                     Ok(Response::json(&credits))
@@ -345,14 +341,14 @@ impl Server {
 
             "POST" => match url.as_str() {
                 APIV1!("/time/advance") => {
-                    let advance_req : TimeAdvanceReq = deserialize_request(req)?;
+                    let advance_req: TimeAdvanceReq = deserialize_request(req)?;
                     self.time.lock().unwrap().set_time(&advance_req.time);
                     self.dynamic_runner.force_wakeup();
                     Ok(Response::text("Ok"))
                 }
                 APIV1!("/transaction") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
-                    let transaction : Transaction = deserialize_request::<Transaction>(req)?;
+                    let transaction: Transaction = deserialize_request::<Transaction>(req)?;
                     banks_service.transaction_unprotected(transaction, params)?;
                     Ok(Response::text("Ok"))
                 }
@@ -365,7 +361,7 @@ impl Server {
                 }
                 APIV1!("/credit/accept") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
-                    let accept_req : CreditAcceptRequest = deserialize_request(req)?;
+                    let accept_req: CreditAcceptRequest = deserialize_request(req)?;
                     banks_service.credit_accept(accept_req, params)?;
                     Ok(Response::text("Ok"))
                 }
@@ -378,66 +374,66 @@ impl Server {
         }
     }
 
-
-    pub fn handle_operator(&mut self,
+    pub fn handle_operator(
+        &mut self,
         req: &Request,
-        params: &RequestParams
+        params: &RequestParams,
     ) -> Result<Response, ServerError> {
-
         let url = req.url();
 
-
         match req.method() {
-
-            "GET" =>  match url.as_str(){
+            "GET" => match url.as_str() {
                 APIV1!("/transaction") => {
                     let banks = self.banks.lock().expect("Mutex");
                     let transactions = banks.transactions_get();
                     Ok(Response::json(transactions))
-                },
-                _ => Err(ServerError::NotFound("".into()))
+                }
+                APIV1!("/salary/accept_proj") => {
+                    let mut banks = self.banks.lock().expect("Mutex");
+                    Ok(Response::json(&banks.get_accept_salary_proj()?))
+                }
+                _ => Err(ServerError::NotFound("".into())),
             },
 
-
-            "POST" => match url.as_str(){
+            "POST" => match url.as_str() {
                 APIV1!("/transacion/revert") => {
                     let mut banks = self.banks.lock().expect("Mutex");
                     banks.transaction_revert(params)?;
                     Ok(Response::text("Ok"))
-                },
-                APIV1!("/salary/accept_proj")=> {
+                }
+                APIV1!("/salary/accept_proj") => {
                     let mut banks = self.banks.lock().expect("Mutex");
-                    let req : SalaryAcceptProjRequest = deserialize_request(req)?;
+                    let req: SalaryAcceptProjRequest = deserialize_request(req)?;
                     banks.accept_salary_proj(req)?;
                     Ok(Response::text("Ok"))
                 }
-                _ => Err(ServerError::NotFound("".into()))
+                _ => Err(ServerError::NotFound("".into())),
             },
-            _ => Err(ServerError::MethodNotAllowed("".into()))
+            _ => Err(ServerError::MethodNotAllowed("".into())),
+        }
     }
-    }
 
-
-
-    pub fn update(&mut self){
+    pub fn update(&mut self) {
         let mut banks = self.banks.lock().expect("Mutex");
         let time_service = self.time.lock().unwrap();
         let time = time_service.get_time();
         banks.update(&time);
     }
 
-
     pub fn handle_enterprise_specialist(
-        &mut self, 
+        &mut self,
         req: &Request,
-        params : &RequestParams
+        params: &RequestParams,
     ) -> Result<Response, ServerError> {
-           let url = req.url();
+        let url = req.url();
 
         match req.method() {
-
-            "GET" => match url.as_str(){
-
+            "GET" => match url.as_str() {
+                APIV1!("/banks") => {
+                    let banks_service = self.banks.lock().expect("Mutex");
+                    let resp = banks_service.banks_get();
+                    Ok(Response::json(&resp))
+                }
                 APIV1!("/account") => {
                     let banks_service = self.banks.lock().expect("Mutex");
                     let accounts_resp = banks_service.accounts_get(params)?;
@@ -448,10 +444,21 @@ impl Server {
                     let resp = bank.salary_accept_decline_get(params)?;
                     Ok(Response::json(resp))
                 }
-                _ => Err(ServerError::NotFound("".into()))
-            }
-              
-            "POST" => match url.as_str(){
+                APIV1!("/salary/proj") => {
+                    let bank = self.banks.lock().unwrap();
+                    let enterprise = self
+                        .auth
+                        .lock()
+                        .unwrap()
+                        .validate_authentification(params.token.unwrap(), ENTERPRISE)
+                        .map_err(|e| ServerError::Forbidden(e.to_string()))?;
+                    let resp = bank.get_salary_proj(enterprise)?;
+                    Ok(Response::json(&resp))
+                }
+                _ => Err(ServerError::NotFound("".into())),
+            },
+
+            "POST" => match url.as_str() {
                 APIV1!("/account/open") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
                     let resp = banks_service.account_open(params)?;
@@ -459,33 +466,35 @@ impl Server {
                 }
                 APIV1!("/account/close") => {
                     let mut banks_service = self.banks.lock().expect("Mutex");
-                    let close_req : AccountCloseReq = deserialize_request(req)?;
+                    let close_req: AccountCloseReq = deserialize_request(req)?;
                     banks_service.account_close(close_req, params)?;
                     Ok(Response::text("Ok"))
                 }
                 APIV1!("/salary/new") => {
                     let mut bank = self.banks.lock().unwrap();
-                    let req : SalaryInitProjRequest = deserialize_request(req)?;
+                    let req: SalaryInitProjRequest = deserialize_request(req)?;
                     bank.init_salary_proj(req, params)?;
                     Ok(Response::text("Ok"))
                 }
                 APIV1!("/salary/accept") => {
                     let mut bank = self.banks.lock().unwrap();
-                    let req : SalaryAcceptRequest = deserialize_request(req)?;
+                    let req: SalaryAcceptRequest = deserialize_request(req)?;
                     bank.salary_accept_decline(req, params)?;
                     Ok(Response::text("Ok"))
                 }
-                _ => Err(ServerError::NotFound("".into()))
-            }
-                
-            
-            _  => Err(ServerError::MethodNotAllowed(
+                APIV1!("/transaction") => {
+                    let mut banks_service = self.banks.lock().expect("Mutex");
+                    let transaction: Transaction = deserialize_request::<Transaction>(req)?;
+                    banks_service.transaction_unprotected(transaction, params)?;
+                    Ok(Response::text("Ok"))
+                }
+                _ => Err(ServerError::NotFound("".into())),
+            },
+
+            _ => Err(ServerError::MethodNotAllowed(
                 "Method not allowed".to_string(),
             )),
-
-
         }
-
     }
 
     // fn handle_get(&mut self, req: &Request) -> Result<Response, ServerError> {
@@ -594,12 +603,11 @@ impl Server {
     // }
 }
 
-
 impl Storable for Server {
-    fn load(&mut self, _dir : &std::path::Path) {
+    fn load(&mut self, _dir: &std::path::Path) {
         ()
     }
-    fn store(&self, _dir : &std::path::Path) {
+    fn store(&self, _dir: &std::path::Path) {
         ()
     }
 }

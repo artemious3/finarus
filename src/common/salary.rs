@@ -34,3 +34,32 @@ pub struct SalaryAcceptProjRequest {
     pub enterprise : Login 
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Employee {
+    pub login: Login,
+    pub account: TransactionEndPoint,
+    pub salary: Money,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SalaryProject {
+    pub employees: Vec<Employee>,
+    pub enterprise_accoint: TransactionEndPoint,
+    pub accepted : bool
+}
+
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SalaryProjectResp{
+    pub enterprise : Login,
+    pub proj : SalaryProject
+
+}
+
+
+impl ToString for SalaryProjectResp {
+    fn to_string(&self) -> String {
+        serde_yaml::to_string(&self).unwrap()
+    }
+}
+
