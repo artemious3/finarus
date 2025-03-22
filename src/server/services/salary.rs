@@ -5,16 +5,26 @@ use l1::common::transaction::TransactionEndPoint;
 use l1::common::Money;
 use serde::{Serialize, Deserialize};
 use std::collections::hash_map::*;
+use std::sync::{Arc, Mutex};
+use crate::services::time::TimeService;
 
 
-#[derive(Default)]
 pub struct SalaryService {
+    pub time : Arc<Mutex<TimeService>>,
     pub salary_requests: HashMap<Login, Vec<SalaryClientRequest>>, // enterprise name -> list of
     // salary requests
     pub salary_projects: HashMap<Login, SalaryProject>, // enterprise name -> one salary project
 }
 
 impl SalaryService {
+
+    pub fn new(time : Arc<Mutex<TimeService>>) -> Self {
+        SalaryService{
+            time,
+            salary_requests : HashMap::new(),
+            salary_projects : HashMap::new()
+        }
+    }
     pub fn salary_request(
         &mut self,
         req: SalaryClientRequest,
@@ -77,9 +87,12 @@ impl SalaryService {
 
 
     pub fn init_salary_proj(&mut self, enterprise_name: Login, account : TransactionEndPoint ){
+        let now = self.time.lock().unwrap().get_time();
         self.salary_projects.insert(enterprise_name, SalaryProject{
             employees : Vec::new(),
             enterprise_accoint : account, 
+            last_paid : None,
+            created : now,
             accepted : false
         });
     }

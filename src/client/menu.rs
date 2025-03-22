@@ -53,14 +53,15 @@ impl<'a> Menu<'a> {
 
 
 impl<'a> Action for Menu<'a> {
-    fn exec(&mut self, ctx: Arc<Mutex<ClientContext>>) -> Result<(), String> {
+    fn exec(&mut self, ctx_ref: Arc<Mutex<ClientContext>>) -> Result<(), String> {
         println!("Select an option:");
         loop {
+            let login = ctx_ref.lock().unwrap().login.clone();
             for (option, menu) in &self.actions {
                 println!("   `{}` -- {}", *option as char, menu.name()); 
             }
 
-            print!(">>> ");
+            print!("@{}>>> ", login.unwrap_or("".to_string()));
             flush();
             let mut inp = String::new();
             std::io::stdin().read_line(&mut inp).expect("Input error");
@@ -73,7 +74,7 @@ impl<'a> Action for Menu<'a> {
                     Some(val) => {
                         print!("\n{}\n\n", val.1.description());
                         flush();
-                        return val.1.exec(ctx.clone()).map_err(|err : String|{
+                        return val.1.exec(ctx_ref.clone()).map_err(|err : String|{
                             println!("\n{} : {}\n\n", "ERROR".red(), err);
                            err 
                         });

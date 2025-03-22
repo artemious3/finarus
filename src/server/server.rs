@@ -396,7 +396,7 @@ impl Server {
             },
 
             "POST" => match url.as_str() {
-                APIV1!("/transacion/revert") => {
+                APIV1!("/transaction/revert") => {
                     let mut banks = self.banks.lock().expect("Mutex");
                     banks.transaction_revert(params)?;
                     Ok(Response::text("Ok"))

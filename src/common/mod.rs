@@ -1,4 +1,4 @@
-use std::ops::{DerefMut, Deref, Rem, Div, Sub, Add, AddAssign, SubAssign};
+use std::ops::{Deref, Rem, Div, Sub, Add, AddAssign, SubAssign, Mul};
 use serde::{Serialize, Deserialize};
 use std::fmt::Display;
 
@@ -30,6 +30,13 @@ impl Add<i32> for Money {
     type Output = Money;
     fn add(self, rhs: i32) -> Self::Output {
         Money(self.0 + rhs)
+    }
+}
+
+impl Mul<i32> for Money {
+    type Output = Money;
+    fn mul(self, rhs: i32) -> Self::Output {
+        Money(self.0 * rhs)
     }
 }
 

@@ -336,7 +336,7 @@ impl Action for DiscountNewAction {
     }
 
 
-    fn exec(&mut self, ctx : Arc<Mutex<ClientContext>>) -> Result<(), String> {
+    fn exec(&mut self, ctx_ref : Arc<Mutex<ClientContext>>) -> Result<(), String> {
 
         let ctx = ctx_ref.lock().unwrap();
 

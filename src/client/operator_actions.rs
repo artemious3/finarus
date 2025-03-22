@@ -58,8 +58,9 @@ impl Action for TransactionsRevertAction {
         let ctx = ctx_ref.lock().unwrap();
         
         print!("Please print `yes` to confirm the revert action.");
+        flush();
         let mut s = String::new();
-        std::io::stdin().read_line(&mut s);
+        std::io::stdin().read_line(&mut s).unwrap();
         if s != "yes\n"{
             return Err("Cancelled".to_string());
         }

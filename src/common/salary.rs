@@ -45,6 +45,8 @@ pub struct Employee {
 pub struct SalaryProject {
     pub employees: Vec<Employee>,
     pub enterprise_accoint: TransactionEndPoint,
+    pub last_paid : Option<chrono::DateTime<chrono::Utc>>,
+    pub created : chrono::DateTime<chrono::Utc>,
     pub accepted : bool
 }
 

@@ -50,10 +50,10 @@ impl BankService {
     pub fn new(serv: Arc<Mutex<AuthService>>, tm: Arc<Mutex<TimeService>>) -> Self {
         let mut bs = BankService {
             auth: serv,
-            time: tm,
+            time: tm.clone(),
             banks: HashMap::new(),
             transactions: Vec::new(),
-            salary: SalaryService::default(),
+            salary: SalaryService::new(tm.clone()),
         };
 
         //TMP
@@ -555,7 +555,7 @@ pub fn signed_month_difference(start: &DateTime<Utc>, end: &DateTime<Utc>) -> Un
 
 impl Dynamic for BankService {
     fn update(&mut self, time: &chrono::DateTime<chrono::Utc>) {
-        let mut transactions: Vec<Transaction> = Vec::new();
+        let mut transactions: Vec<(Transaction, bool)> = Vec::new();
 
         for (_, bank) in &mut self.banks {
             bank.update(time);
@@ -568,7 +568,7 @@ impl Dynamic for BankService {
 
                     if months_since_last_pay > 0 && months_remaining > 0 {
                         let months_to_pay = std::cmp::min(months_since_last_pay, months_remaining);
-                        transactions.push(Transaction {
+                        transactions.push((Transaction {
                             amount: Money(months_to_pay * *credit.monthly_pay),
                             src: TransactionEndPoint {
                                 bik: bank.public_info.bik,
@@ -578,7 +578,7 @@ impl Dynamic for BankService {
                                 bik: 0,
                                 account_id: 0,
                             },
-                        });
+                        }, false));
 
                         credit.last_pay = credit.first_pay
                             + chrono::Months::new((months_paid + months_to_pay) as u32);
@@ -587,9 +587,37 @@ impl Dynamic for BankService {
             }
         }
 
+
+        for (_, proj) in &mut self.salary.salary_projects {
+            if !proj.accepted {
+                continue;
+            }
+
+            let months = signed_month_difference(&proj.last_paid.unwrap_or(proj.created), time);
+
+            if months < 0 {
+                log::error!("Now is the past, last update is the future ");
+                continue;
+            }
+
+            for employee in &proj.employees {
+                
+                transactions.push(
+                    (Transaction {
+                        src : proj.enterprise_accoint.clone(),
+                        dst : employee.account.clone(),
+                        amount : employee.salary * months,
+                    }, 
+                    true)
+                );
+            }
+
+            proj.last_paid = Some(time.clone());
+        }
+
         for trans in transactions {
             let _ = self
-                .perform_transaction(trans, false)
+                .perform_transaction(trans.0, trans.1)
                 .inspect_err(|e| log::error!("Transaction during update not performed : {}", e));
         }
     }
