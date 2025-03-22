@@ -323,6 +323,46 @@ impl Action for CreditNewAction {
 }
 
 
+pub struct DiscountNewAction {}
+
+impl Action for DiscountNewAction {
+    fn name(&self) -> &'static str {
+        "NEW discount"
+    }
+
+
+    fn description(&self) -> &'static str {
+        "New discount"
+    }
+
+
+    fn exec(&mut self, ctx : Arc<Mutex<ClientContext>>) -> Result<(), String> {
+
+        let ctx = ctx_ref.lock().unwrap();
+
+        ensure_bank_selected(&ctx)?;
+
+        let src_acc = select_account(&ctx)?;
+
+        let req = CreditParams{
+            amount : Money(i32::input("Amount of money : ", 0).ok_or("Wrong input")?),
+            interest_rate : 0,
+            term : u8::input("Term : ", 0).ok_or("Wrong input")?,
+            src_account:src_acc
+        };
+
+
+        let resp = post_with_params(API!("/credit/new"),
+                                serde_json::to_string(&req).unwrap(),
+                                &ctx)?;
+        handle_errors(resp)?;
+
+        Ok(())
+        
+    }
+}
+
+
 pub struct CreditGetAction {}
 
 impl Action for CreditGetAction {
@@ -353,6 +393,9 @@ impl Action for CreditGetAction {
         Ok(())
     }
 }
+
+
+
 
 
 pub struct SalaryRequestAction {}

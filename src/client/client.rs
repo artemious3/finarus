@@ -92,6 +92,7 @@ impl<'a> Client<'a> {
         credit_menu.set_name("CREDIT");
         credit_menu.add_action('g' as u8, Box::new(CreditGetAction{}));
         credit_menu.add_action('n' as u8, Box::new(CreditNewAction{}));
+        credit_menu.add_action('d' as u8, Box::new(DiscountNewAction{}));
         self.client_menu.add_action('c' as u8, Box::new(credit_menu));
 
 
