@@ -5,6 +5,8 @@ use std::io::Write;
 use crate::client::ClientContext;
 use std::sync::{Arc, Mutex};
 
+use colored::Colorize;
+
 
 pub fn flush(){
     std::io::stdout().flush().unwrap();
@@ -72,7 +74,7 @@ impl<'a> Action for Menu<'a> {
                         print!("\n{}\n\n", val.1.description());
                         flush();
                         return val.1.exec(ctx.clone()).map_err(|err : String|{
-                            println!("\nERROR : {}\n\n", err);
+                            println!("\n{} : {}\n\n", "ERROR".red(), err);
                            err 
                         });
                     }

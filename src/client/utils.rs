@@ -3,6 +3,9 @@ use crate::client::ClientContext;
 use reqwest::blocking::Response;
 use reqwest::StatusCode;
 
+use colored::Colorize;
+
+
 
 pub fn json_to_yaml<T>(str: String) -> Option<String>
 where
@@ -24,7 +27,7 @@ pub fn handle_errors(response: reqwest::blocking::Response) -> Result<String, St
 
     match response.status() {
         StatusCode::OK => {
-            println!("Success");
+            println!("{}", "Success".green());
             Ok(response.text().unwrap())
         }
         _ => Err(response.text().unwrap()),
