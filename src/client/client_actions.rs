@@ -303,6 +303,7 @@ impl Action for CreditNewAction {
 
         ensure_bank_selected(&ctx)?;
 
+        println!("Select account ID for your credit");
         let src_acc = select_account(&ctx)?;
 
         let req = CreditParams{

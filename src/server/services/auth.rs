@@ -38,6 +38,60 @@ impl Into<&str> for LoginDataStatus {
     }
 }
 
+
+const NAMES : &'static [&'static str]= &[
+  "Kostya",
+  "Max",
+  "Dima",
+  "Artsiom",
+  "Xena",
+  "Diana",
+  "Pavel",
+  "Ivan",
+  "Misha",
+  "Stas",
+  "Andrey",
+  "Sergey",
+  "Petr",
+  "Nikita",
+  "Vladimir",
+  "Oleg",
+  "Denis",
+  "Arseniy",
+  "Egor",
+  "Daniil",
+  "Yaroslav",
+];
+const SURNAMES  : &'static [&'static str]= &[
+  "Byteable",
+  "Verible",
+  "Cromable",
+  "Clangly",
+  "Rustable",
+  "Sandable",
+  "Nandy",
+  "Nory",
+  "Pony",
+  "Sandman",
+  "Silverman",
+  "Goldman",
+  "Platinuman",
+  "Rubyman",
+  "Sapphireman",
+  "Cosmer",
+  "Earther",
+  "Deuterer",
+  "Curable",
+  "Fermenter",
+  "Milkman",
+  "Waterman",
+  "Mailer",
+  "Cretor",
+  "Mentor",
+  "Supitar",
+  "Onkir",
+];
+
 impl AuthService {
     pub fn new() -> Self {
         let mut service = AuthService {
@@ -46,11 +100,18 @@ impl AuthService {
             users: HashMap::new(),
         };
 
-        // TMP!!!
+        service._fill();
+
+        service
+    }
+
+
+    pub fn _fill(&mut self){
+
         let mut hasher = sha2::Sha256::new();
         hasher.update("mng");
         let hash = format!("{:x}", hasher.finalize());
-        service.users.insert(
+        self.users.insert(
             "mng".to_string(),
             InternalUser {
                 user_type: MANAGER,
@@ -60,24 +121,10 @@ impl AuthService {
             },
         );
 
-
-        let mut hasher = sha2::Sha256::new();
-        hasher.update("cli");
-        let hash = format!("{:x}", hasher.finalize());
-        service.users.insert(
-            "cli".to_string(),
-            InternalUser {
-                user_type: CLIENT,
-                login : "cli".to_string(),
-                password_hash: hash,
-                public_user : UserData::None 
-            }
-        );
-
         let mut hasher = sha2::Sha256::new();
         hasher.update("opr");
         let hash = format!("{:x}", hasher.finalize());
-        service.users.insert(
+        self.users.insert(
             "opr".to_string(),
             InternalUser {
                 user_type: OPERATOR,
@@ -87,22 +134,69 @@ impl AuthService {
             }
         );
 
+        for _ in 0..100 {
+
+            let login : String = rand::rng().sample_iter(&rand::distr::Alphanumeric)
+                .take(4)
+                .map(char::from)
+                .collect();
+
+            let mut hasher = sha2::Sha256::new();
+            hasher.update("123");
+            let hash = format!("{:x}", hasher.finalize());
+            self.users.insert(
+                login.clone(),
+                InternalUser {
+                    user_type: CLIENT,
+                    login : login.clone(),
+                    password_hash: hash,
+                    public_user : UserData::None 
+                }
+            ); 
+            log::info!("User with login {} created", login);
+        }
+
+
         let mut hasher = sha2::Sha256::new();
-        hasher.update("ent");
+        hasher.update("123");
         let hash = format!("{:x}", hasher.finalize());
-        service.users.insert(
-            "ent".to_string(),
+        self.users.insert(
+            "BSUIR".to_string(),
             InternalUser {
                 user_type: ENTERPRISE,
-                login : "ent".to_string(),
+                login : "BSUIR".to_string(),
                 password_hash: hash,
                 public_user : UserData::None
             }
         );
 
-        // TMP!!!
+        let mut hasher = sha2::Sha256::new();
+        hasher.update("123");
+        let hash = format!("{:x}", hasher.finalize());
+        self.users.insert(
+            "Aston".to_string(),
+            InternalUser {
+                user_type: ENTERPRISE,
+                login : "Aston".to_string(),
+                password_hash: hash,
+                public_user : UserData::None
+            }
+        );
 
-        service
+        let mut hasher = sha2::Sha256::new();
+        hasher.update("123");
+        let hash = format!("{:x}", hasher.finalize());
+        self.users.insert(
+            "Innowise".to_string(),
+            InternalUser {
+                user_type: ENTERPRISE,
+                login : "Innowise".to_string(),
+                password_hash: hash,
+                public_user : UserData::None
+            }
+        );
+
+
     }
 
     pub fn validate_authentification(&self, token: Token, role: UserType) -> Result<Login, String> {

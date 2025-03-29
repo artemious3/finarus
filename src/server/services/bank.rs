@@ -56,18 +56,41 @@ impl BankService {
             salary: SalaryService::new(tm.clone()),
         };
 
+        bs._fill();
+        bs
+    }
+
+
+
+    pub fn _fill(&mut self) {
+        //
         //TMP
-        bs.banks.insert(
+        self.banks.insert(
             1003004,
             Bank::new(BankPublicInfo {
-                name: "Belarusbank".to_string(),
+                name: "BelarusBank".to_string(),
                 bik: 1003004,
                 address: "Nezalezhnasci pr, 4".to_string(),
             }),
         );
+        self.banks.insert(
+            1003005,
+            Bank::new(BankPublicInfo {
+                name: "AlphaBank".to_string(),
+                bik: 1003005,
+                address: "Pershamaiski peravulak, 111".to_string(),
+            }),
+        );
+        self.banks.insert(
+            1003006,
+            Bank::new(BankPublicInfo {
+                name: "BelinvestBank".to_string(),
+                bik: 1003006,
+                address: "Masherava pr., 142".to_string(),
+            }),
+        );
         //TMP
 
-        bs
     }
 
     fn get_request_context(
